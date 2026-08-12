@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { AppProvider, useApp } from './context/AppContext';
 import { SidebarServers } from './components/SidebarServers';
@@ -15,36 +15,41 @@ import { ToastContainer } from './components/SharedUI';
 import { ContextMenuProvider } from './components/ContextMenu';
 import { AuthPage } from './components/AuthPage';
 import { ResetPasswordPage } from './components/ResetPasswordPage';
+import { InviteScreen } from './components/InviteScreen';
 import { supabase } from './lib/supabase';
 import { unlockAudio } from './lib/sounds';
 import { Menu } from 'lucide-react';
 
-const DashboardContent: React.FC = () => {
-  const { activeServerId, activeDmId, callState, joinServer } = useApp();
+const detectInvite = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('invite')?.trim();
+  if (fromUrl) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    localStorage.setItem('discordex:pending-invite', fromUrl);
+    return fromUrl;
+  }
+  const pathMatch = window.location.pathname.match(/^\/invite\/([A-Za-z0-9]+)/);
+  if (pathMatch) {
+    window.history.replaceState({}, document.title, window.location.pathname.replace(/^\/invite\/[A-Za-z0-9]+/, '/'));
+    localStorage.setItem('discordex:pending-invite', pathMatch[1]);
+    return pathMatch[1];
+  }
+  return localStorage.getItem('discordex:pending-invite');
+};
+
+interface DashboardProps {
+  inviteCode: string | null;
+  onInviteClose: () => void;
+}
+
+const DashboardContent: React.FC<DashboardProps> = ({ inviteCode, onInviteClose }) => {
+  const { activeServerId, activeDmId, callState } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const inviteProcessed = useRef(false);
 
   useEffect(() => {
-    if (inviteProcessed.current) return;
-    inviteProcessed.current = true;
-
-    const params = new URLSearchParams(window.location.search);
-    const inviteParam = params.get('invite');
-    const storedInvite = localStorage.getItem('discordex:pending-invite');
-
-    const code = inviteParam || storedInvite;
-    if (code) {
-      if (inviteParam) {
-        localStorage.setItem('discordex:pending-invite', code);
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-      window.setTimeout(() => {
-        localStorage.removeItem('discordex:pending-invite');
-        void joinServer(code);
-      }, 600);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (inviteCode) localStorage.setItem('discordex:pending-invite', inviteCode);
+  }, [inviteCode]);
 
   return (
     <div className="flex h-full w-full overflow-hidden relative">
@@ -106,6 +111,9 @@ const DashboardContent: React.FC = () => {
       <ToastContainer />
       <IncomingCallOverlay />
 
+      {/* Discord-style invite screen */}
+      {inviteCode && <InviteScreen code={inviteCode} onClose={onInviteClose} />}
+
     </div>
   );
 };
@@ -116,6 +124,12 @@ function App() {
   const [recoveryPending, setRecoveryPending] = useState(() =>
     typeof window !== 'undefined' && window.location.hash.includes('type=recovery')
   );
+  const [inviteCode, setInviteCode] = useState<string | null>(() => detectInvite());
+
+  const clearInvite = () => {
+    localStorage.removeItem('discordex:pending-invite');
+    setInviteCode(null);
+  };
 
   useEffect(() => {
     const staleSession = async () => {
@@ -177,7 +191,7 @@ function App() {
   return (
     <AppProvider>
       <ContextMenuProvider>
-        <DashboardContent />
+        <DashboardContent inviteCode={inviteCode} onInviteClose={clearInvite} />
       </ContextMenuProvider>
     </AppProvider>
   );

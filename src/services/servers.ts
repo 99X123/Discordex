@@ -147,6 +147,51 @@ export function buildInviteUrl(code: string): string {
   return `${window.location.origin}?invite=${code}`;
 }
 
+export interface InviteDetails {
+  serverId: string;
+  serverName: string;
+  serverIcon: string | null;
+  memberCount: number;
+  alreadyMember: boolean;
+}
+
+/** Busca os detalhes de um convite (para a tela de aceitar/recusar) */
+export async function getInviteDetails(
+  code: string
+): Promise<{ success: boolean; details?: InviteDetails; error?: string }> {
+  const { data, error } = await supabase.rpc('get_invite_details', {
+    p_code: code,
+  });
+
+  if (error) return { success: false, error: error.message };
+
+  const result = data as {
+    success?: boolean;
+    server_id?: string;
+    server_name?: string;
+    server_icon?: string | null;
+    member_count?: number;
+    already_member?: boolean;
+    error?: string;
+    message?: string;
+  } | null;
+
+  if (!result?.success || !result.server_id) {
+    return { success: false, error: result?.message ?? result?.error ?? 'Convite invalido.' };
+  }
+
+  return {
+    success: true,
+    details: {
+      serverId: result.server_id,
+      serverName: result.server_name ?? 'Servidor',
+      serverIcon: result.server_icon ?? null,
+      memberCount: result.member_count ?? 0,
+      alreadyMember: Boolean(result.already_member),
+    },
+  };
+}
+
 /** Cria um convite para o servidor (qualquer membro) */
 export async function createServerInvite(
   serverId: string

@@ -645,7 +645,7 @@ export const buildServerMenu = (deps: MenuDeps, options: ServerMenuOptions): Con
     {
       label: 'Convidar pessoas',
       icon: <UserPlus className="w-4 h-4" />,
-      onClick: () => deps.openModal('join-server'),
+      onClick: () => void deps.createServerInvite(server.id),
     },
     {
       label: 'Configuracoes do grupo',

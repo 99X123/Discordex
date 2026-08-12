@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { createChannel as createChannelRecord } from '../services/channels';
-import { createServer, deleteServer as deleteServerRecord, extractInviteCode, getMyServers, joinServerViaInvite, leaveServer, updateServer as updateServerRecord } from '../services/servers';
+import { createServer, createServerInvite as createServerInviteRecord, deleteServer as deleteServerRecord, extractInviteCode, getMyServers, joinServerViaInvite, leaveServer, updateServer as updateServerRecord } from '../services/servers';
 import { getMyProfile, updateProfile } from '../services/profiles';
 import { getServerMembersWithRoles, type ServerMemberWithProfile } from '../services/members';
 import {
@@ -209,6 +209,7 @@ interface AppContextType {
   removeChannelRolePermission: (channelId: string, roleId: string) => Promise<boolean>;
   addServer: (name: string) => void;
   joinServer: (inviteCode: string) => void;
+  createServerInvite: (serverId: string) => Promise<void>;
   deleteServer: (serverId: string) => void;
   refreshServers: () => Promise<void>;
   updateServerConfig: (serverId: string, updates: { name?: string; description?: string; icon_url?: string }) => Promise<void>;
@@ -799,6 +800,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await loadServers();
     setActiveServerIdState(result.serverId);
     addToast('Voce entrou no servidor.', 'success');
+  };
+
+  const createServerInvite = async (serverId: string) => {
+    const result = await createServerInviteRecord(serverId);
+    if (!result.success || !result.inviteUrl) {
+      addToast(result.error || 'Nao foi possivel criar o convite.', 'error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(result.inviteUrl);
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = result.inviteUrl;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      document.body.removeChild(area);
+    }
+    addToast('Link de convite criado e copiado!', 'success');
   };
 
   const deleteServer = async (serverId: string) => {
@@ -1458,6 +1480,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       removeChannelRolePermission,
       addServer,
       joinServer,
+      createServerInvite,
       deleteServer,
       refreshServers,
       updateServerConfig,

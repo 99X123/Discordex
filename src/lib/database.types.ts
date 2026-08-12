@@ -485,6 +485,10 @@ export interface Database {
         Args: { p_code: string };
         Returns: Json;
       };
+      get_invite_details: {
+        Args: { p_code: string };
+        Returns: Json;
+      };
       kick_member: {
         Args: { p_server_id: string; p_target_id: string };
         Returns: Json;
