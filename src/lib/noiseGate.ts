@@ -1,4 +1,12 @@
-export const applyNoiseSuppression = (stream: MediaStream, enabled: boolean): MediaStream => {
+export type NoiseSuppressionLevel = 'low' | 'medium' | 'high';
+
+const LEVEL_CONFIG: Record<NoiseSuppressionLevel, { threshold: number; attack: number; release: number }> = {
+  low: { threshold: 18, attack: 0.15, release: 0.03 },
+  medium: { threshold: 30, attack: 0.25, release: 0.06 },
+  high: { threshold: 45, attack: 0.4, release: 0.12 },
+};
+
+export const applyNoiseSuppression = (stream: MediaStream, enabled: boolean, level: NoiseSuppressionLevel = 'medium'): MediaStream => {
   if (!enabled) return stream;
   const audioTrack = stream.getAudioTracks()[0];
   const videoTrack = stream.getVideoTracks()[0] || null;
@@ -37,7 +45,7 @@ export const applyNoiseSuppression = (stream: MediaStream, enabled: boolean): Me
     gain.connect(destination);
 
     const data = new Uint8Array(analyser.frequencyBinCount);
-    const threshold = 30;
+    const { threshold, attack, release } = LEVEL_CONFIG[level];
     let current = 0;
 
     const tick = () => {
@@ -47,7 +55,7 @@ export const applyNoiseSuppression = (stream: MediaStream, enabled: boolean): Me
       for (let i = 0; i < data.length; i++) sum += data[i];
       const level = sum / data.length;
       const target = level > threshold ? 1 : 0;
-      const smoothing = target > current ? 0.25 : 0.06;
+      const smoothing = target > current ? attack : release;
       current += (target - current) * smoothing;
       gain.gain.value = current;
       raf = requestAnimationFrame(tick);

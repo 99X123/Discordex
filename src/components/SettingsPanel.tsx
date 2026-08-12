@@ -32,6 +32,10 @@ export const SettingsPanel: React.FC = () => {
   const [startCamera, setStartCamera] = useState(localStorage.getItem('discordex:start-camera') !== 'false');
   const [echoCancellation, setEchoCancellation] = useState(localStorage.getItem('discordex:echo-cancellation') !== 'false');
   const [noiseSuppression, setNoiseSuppression] = useState(localStorage.getItem('discordex:noise-suppression') !== 'false');
+  const [noiseSuppressionLevel, setNoiseSuppressionLevel] = useState<'low' | 'medium' | 'high'>(() => {
+    const stored = localStorage.getItem('discordex:noise-suppression-level');
+    return stored === 'low' || stored === 'high' ? stored : 'medium';
+  });
   const [inputDevice, setInputDevice] = useState(localStorage.getItem('discordex:input-device') || '');
   const [cameraDevice, setCameraDevice] = useState(localStorage.getItem('discordex:camera-device') || '');
   const [videoQuality, setVideoQuality] = useState(localStorage.getItem('discordex:video-quality') || 'auto');
@@ -126,6 +130,7 @@ export const SettingsPanel: React.FC = () => {
     localStorage.setItem('discordex:start-camera', String(startCamera));
     localStorage.setItem('discordex:echo-cancellation', String(echoCancellation));
     localStorage.setItem('discordex:noise-suppression', String(noiseSuppression));
+    localStorage.setItem('discordex:noise-suppression-level', noiseSuppressionLevel);
     localStorage.setItem('discordex:input-device', inputDevice);
     localStorage.setItem('discordex:camera-device', cameraDevice);
     localStorage.setItem('discordex:video-quality', videoQuality);
@@ -348,6 +353,39 @@ export const SettingsPanel: React.FC = () => {
                   </button>
                 );
               })}
+            </div>
+
+            <div className={`bg-discordex-secondary rounded-2xl border border-discordex-border p-4 space-y-3 ${noiseSuppression ? '' : 'opacity-60'}`}>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-xs font-semibold text-discordex-text-primary">
+                  <Mic className="w-4 h-4 text-discordex-text-secondary" />
+                  Nivel de supressao de ruido
+                </span>
+                <span className="text-[10px] text-discordex-text-secondary">
+                  {noiseSuppressionLevel === 'low' ? 'Suave - deixa mais som de fundo' : noiseSuppressionLevel === 'high' ? 'Forte - corta quase tudo' : 'Padrao'}
+                </span>
+              </div>
+              <div className="flex gap-1.5">
+                {([
+                  { key: 'low', label: 'Baixo' },
+                  { key: 'medium', label: 'Medio' },
+                  { key: 'high', label: 'Alto' },
+                ] as const).map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    disabled={!noiseSuppression}
+                    onClick={() => setNoiseSuppressionLevel(option.key)}
+                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
+                      noiseSuppressionLevel === option.key
+                        ? 'bg-primary text-white'
+                        : 'bg-discordex-bg border border-discordex-border text-discordex-text-secondary hover:text-discordex-text-primary'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="bg-discordex-secondary rounded-2xl border border-discordex-border space-y-4 p-4">

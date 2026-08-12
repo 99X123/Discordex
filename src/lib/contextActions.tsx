@@ -411,7 +411,7 @@ export const buildChannelMenu = (deps: MenuDeps, options: ChannelMenuOptions): C
     items.push({
       label: 'Editar canal',
       icon: <Pencil className="w-4 h-4" />,
-      onClick: () => deps.openServerTab(server.id, 'channels'),
+      onClick: () => deps.openModal('edit-channel', undefined, channel.id),
     });
     items.push({
       label: 'Alterar nome',
@@ -431,9 +431,9 @@ export const buildChannelMenu = (deps: MenuDeps, options: ChannelMenuOptions): C
       },
     });
     items.push({
-      label: 'Alterar permissoes',
+      label: 'Permissoes do canal',
       icon: <SettingsIcon className="w-4 h-4" />,
-      onClick: () => deps.openServerTab(server.id, 'roles'),
+      onClick: () => deps.openModal('edit-channel', undefined, channel.id),
     });
     items.push({ divider: true });
     items.push({

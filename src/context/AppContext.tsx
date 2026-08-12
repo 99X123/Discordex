@@ -178,7 +178,7 @@ interface AppContextType {
   isSettingsOpen: boolean;
   settingsTab: string;
   activeServerSettingsId: string | null;
-  activeModal: 'create-server' | 'join-server' | 'create-channel' | 'create-category' | 'create-role' | 'ban-user' | 'kick-user' | 'profile-view' | null;
+  activeModal: 'create-server' | 'join-server' | 'create-channel' | 'create-category' | 'create-role' | 'ban-user' | 'kick-user' | 'profile-view' | 'edit-channel' | null;
   selectedProfileUser: User | null;
   modalPayload: unknown;
   serverSettingsTab: string;
@@ -985,7 +985,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const noiseSuppressionEnabled = localStorage.getItem('discordex:noise-suppression') !== 'false';
     if (noiseSuppressionEnabled) {
-      stream = applyNoiseSuppression(stream, true);
+      const noiseSuppressionLevel = (localStorage.getItem('discordex:noise-suppression-level') || 'medium') as 'low' | 'medium' | 'high';
+      stream = applyNoiseSuppression(stream, true, noiseSuppressionLevel);
     }
 
     setCallState({
