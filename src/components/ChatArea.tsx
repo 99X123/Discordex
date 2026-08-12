@@ -3,9 +3,18 @@ import { useApp } from '../context/AppContext';
 import type { User } from '../context/AppContext';
 import { 
   Hash, Volume2, Search, Send, Smile, CornerDownLeft, 
-  Video, Phone, ArrowLeft
+  Video, Phone, ArrowLeft, ImagePlus, Loader2
 } from 'lucide-react';
 import { Tooltip } from './SharedUI';
+import { supabase } from '../lib/supabase';
+
+const isImageLine = (line: string): boolean => {
+  const t = line.trim();
+  if (!/^https?:\/\/\S+$/i.test(t)) return false;
+  if (/\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(t)) return true;
+  if (/https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/avatars\//i.test(t)) return true;
+  return false;
+};
 
 export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleSidebar }) => {
   const {
@@ -20,15 +29,19 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
     toggleReaction,
     startCall,
     callState,
-    openModal
+    openModal,
+    currentUser,
+    addToast
   } = useApp();
 
   const [inputVal, setInputVal] = useState('');
   const [replyTarget, setReplyTarget] = useState<{ userName: string; content: string } | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [searchVal, setSearchVal] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Retrieve current chat container context
   let chatTitle = '';
@@ -69,6 +82,69 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
     sendMessage(inputVal.trim(), replyTarget || undefined);
     setInputVal('');
     setReplyTarget(null);
+  };
+
+  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !currentUser) return;
+
+    if (!file.type.startsWith('image/')) {
+      addToast('O arquivo selecionado nao e uma imagem.', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('Imagem muito grande. O limite e 5 MB.', 'error');
+      return;
+    }
+
+    setImageUploading(true);
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const filePath = `${currentUser.id}/chat/${Date.now()}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type,
+      });
+
+    setImageUploading(false);
+
+    if (error) {
+      addToast(error.message || 'Nao foi possivel enviar a imagem.', 'error');
+      return;
+    }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    const caption = inputVal.trim();
+    sendMessage(caption ? `${caption}\n${data.publicUrl}` : data.publicUrl, replyTarget || undefined);
+    setInputVal('');
+    setReplyTarget(null);
+  };
+
+  const renderMessageContent = (content: string) => {
+    const lines = content.split('\n');
+    return lines.map((line, i) => {
+      if (isImageLine(line)) {
+        return (
+          <img
+            key={i}
+            src={line.trim()}
+            alt="Imagem"
+            loading="lazy"
+            className="max-w-sm max-h-96 rounded-xl border border-discordex-border my-1 object-contain"
+          />
+        );
+      }
+      return (
+        <span key={i}>
+          {line}
+          {i < lines.length - 1 ? '\n' : ''}
+        </span>
+      );
+    });
   };
 
   const insertEmoji = (emoji: string) => {
@@ -269,9 +345,9 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
                             {msg.timestamp}
                           </span>
                         </div>
-                        <p className="text-xs text-discordex-text-secondary leading-relaxed whitespace-pre-wrap">
-                          {msg.content}
-                        </p>
+                        <div className="text-xs text-discordex-text-secondary leading-relaxed whitespace-pre-wrap">
+                          {renderMessageContent(msg.content)}
+                        </div>
 
                         {/* Reactions list */}
                         {msg.reactions && msg.reactions.length > 0 && (
@@ -355,10 +431,27 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               placeholder={`Escreva uma mensagem em #${chatTitle || ''}...`}
-              className={`w-full px-4 py-3 bg-discordex-secondary border border-discordex-border text-xs text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-all pr-24 ${
+              className={`w-full px-4 pl-10 py-3 bg-discordex-secondary border border-discordex-border text-xs text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-all pr-24 ${
                 replyTarget ? 'rounded-b-2xl' : 'rounded-2xl'
               }`}
             />
+
+            {/* Image upload */}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageSelect}
+            />
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={imageUploading}
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 text-discordex-text-secondary hover:text-discordex-text-primary rounded-lg transition-colors disabled:opacity-50"
+            >
+              {imageUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
+            </button>
 
             {/* Inputs Tools icons */}
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
