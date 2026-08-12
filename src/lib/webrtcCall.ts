@@ -66,6 +66,7 @@ export class VoiceCallEngine {
   private screenTrack: MediaStreamTrack | null = null;
   private screenStream: MediaStream | null = null;
   private dmRoom: string | null = null;
+  private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
 
   constructor(opts: VoiceEngineOptions) {
     this.opts = opts;
@@ -149,10 +150,11 @@ this.opts.onParticipantJoined();
       this.realtime = null;
       this.dmRoom = null;
     }
-    for (const peer of this.peers.values()) {
+for (const peer of this.peers.values()) {
       try { peer.pc.close(); } catch { /* ignore */ }
     }
     this.peers.clear();
+    this.pendingCandidates.clear();
     if (this.audioCtx) {
       try { await this.audioCtx.close(); } catch { /* ignore */ }
       this.audioCtx = null;
@@ -438,6 +440,19 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
     };
   }
 
+  private async flushCandidates(userId: string, pc: RTCPeerConnection) {
+    const list = this.pendingCandidates.get(userId);
+    if (!list || list.length === 0) return;
+    this.pendingCandidates.delete(userId);
+    for (const candidate of list) {
+      try {
+        await pc.addIceCandidate(candidate);
+      } catch (error) {
+        if (!this.ignoreOffer) console.error('addIceCandidate buffered error', error);
+      }
+    }
+  }
+
   private async handleSignal(fromUserId: string, type: string, payload: unknown) {
     let peer = this.peers.get(fromUserId);
     const parsed = payload as { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit };
@@ -463,7 +478,7 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
 
     const pc = peer.pc;
 
-    if (parsed?.sdp) {
+if (parsed?.sdp) {
       const { sdp } = parsed;
       if (sdp.type === 'offer') {
         const readyForOffer = !this.makingOffer && pc.signalingState === 'stable';
@@ -477,12 +492,14 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
               pc.setLocalDescription({ type: 'rollback' }),
               pc.setRemoteDescription(sdp),
             ]);
+            await this.flushCandidates(fromUserId, pc);
           } catch (error) {
             console.error('polite offer error', error);
           }
         } else {
           try {
             await pc.setRemoteDescription(sdp);
+            await this.flushCandidates(fromUserId, pc);
           } catch (error) {
             console.error('setRemoteDescription offer error', error);
           }
@@ -497,12 +514,19 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
         try {
           if (pc.signalingState === 'have-local-offer') {
             await pc.setRemoteDescription(sdp);
+            await this.flushCandidates(fromUserId, pc);
           }
         } catch (error) {
           console.error('setRemoteDescription answer error', error);
         }
       }
     } else if (parsed?.candidate) {
+      if (!pc.remoteDescription) {
+        const list = this.pendingCandidates.get(fromUserId) || [];
+        list.push(parsed.candidate);
+        this.pendingCandidates.set(fromUserId, list);
+        return;
+      }
       try {
         await pc.addIceCandidate(parsed.candidate);
       } catch (error) {
@@ -547,7 +571,8 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
     }
   }
 
-  private removePeer(userId: string) {
+private removePeer(userId: string) {
+    this.pendingCandidates.delete(userId);
     const peer = this.peers.get(userId);
     if (peer) {
       try { peer.pc.close(); } catch { /* ignore */ }

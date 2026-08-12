@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase, supabaseUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { createChannel as createChannelRecord } from '../services/channels';
 import { createServer, deleteServer as deleteServerRecord, extractInviteCode, getMyServers, joinServerViaInvite, leaveServer, updateServer as updateServerRecord } from '../services/servers';
 import { getMyProfile, updateProfile } from '../services/profiles';
@@ -1007,7 +1007,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }, 60000);
     }
 
-    let iceServers: RTCIceServer[] = [
+    const iceServers: RTCIceServer[] = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
@@ -1015,16 +1015,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       { urls: 'stun:stun4.l.google.com:19302' },
       { urls: 'stun:global.stun.twilio.com:3478' },
     ];
-    try {
-      const response = await fetch(`${supabaseUrl}/functions/v1/webrtc-ice-config`, {
-        method: 'GET',
-        cache: 'no-store',
-      });
-      if (response.ok) {
-        const data = (await response.json()) as { iceServers?: RTCIceServer[] };
-        if (data?.iceServers && Array.isArray(data.iceServers)) iceServers = data.iceServers;
-      }
-    } catch { /* fallback STUN */ }
 
     engineRef.current = new VoiceCallEngine({
       supabase,
