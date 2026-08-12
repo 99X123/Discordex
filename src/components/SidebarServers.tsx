@@ -1,9 +1,12 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { Tooltip } from './SharedUI';
+import { useContextMenu } from './ContextMenu';
+import { buildServerMenu } from '../lib/contextActions';
 import { Compass, Plus, Settings } from 'lucide-react';
 
 export const SidebarServers: React.FC = () => {
+  const app = useApp();
   const { 
     servers, 
     activeServerId, 
@@ -12,7 +15,9 @@ export const SidebarServers: React.FC = () => {
     openModal,
     openSettings,
     connectionState
-  } = useApp();
+  } = app;
+
+  const { openMenu } = useContextMenu();
 
   const handleSelectServer = (serverId: string | null) => {
     setActiveServerId(serverId);
@@ -59,6 +64,7 @@ export const SidebarServers: React.FC = () => {
               <Tooltip key={server.id} content={server.name} position="right">
                 <button
                   onClick={() => handleSelectServer(server.id)}
+                  onContextMenu={(event) => openMenu(event, buildServerMenu(app, { server }))}
                   className={`w-12 h-12 flex items-center justify-center transition-all duration-200 relative group overflow-hidden ${
                     isActive 
                       ? 'bg-primary text-white rounded-[14px]' 

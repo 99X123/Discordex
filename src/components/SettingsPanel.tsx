@@ -17,6 +17,8 @@ export const SettingsPanel: React.FC = () => {
     activeServerSettingsId,
     servers,
     isAppAdmin,
+    serverSettingsTab,
+    serverSettingsRoleId,
   } = useApp();
 
   const [displayName, setDisplayName] = useState(currentUser.displayName);
@@ -74,7 +76,7 @@ export const SettingsPanel: React.FC = () => {
   if (!isSettingsOpen) return null;
 
   if (activeServer) {
-    return <ServerSettings server={activeServer} onClose={closeSettings} />;
+    return <ServerSettings server={activeServer} onClose={closeSettings} initialTab={serverSettingsTab} initialRoleId={serverSettingsRoleId} />;
   }
 
   const handleSaveProfile = (event: React.FormEvent) => {

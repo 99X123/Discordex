@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Channel } from '../context/AppContext';
 import { Tooltip } from './SharedUI';
+import { useContextMenu } from './ContextMenu';
 import { PERMISSIONS, hasPermission } from '../lib/permissions';
+import { buildChannelMenu, buildCategoryMenu, buildServerMenu } from '../lib/contextActions';
 import { 
   Hash, Volume2, Settings, Mic, MicOff, Video, VideoOff, 
   PhoneOff, UserPlus, ChevronDown, Plus, LogOut, Users, FolderPlus
 } from 'lucide-react';
 
 export const SidebarChannels: React.FC = () => {
+  const app = useApp();
   const { 
     servers, 
     activeServerId, 
@@ -24,7 +27,9 @@ export const SidebarChannels: React.FC = () => {
     deleteServer,
     voiceCounts,
     getMyPermissions,
-  } = useApp();
+  } = app;
+
+  const { openMenu } = useContextMenu();
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -59,6 +64,7 @@ export const SidebarChannels: React.FC = () => {
       <div
         key={chan.id}
         onClick={() => handleChannelClick(chan)}
+        onContextMenu={(event) => openMenu(event, buildChannelMenu(app, { server: activeServer, channel: chan }))}
         className={`flex items-center justify-between px-2 py-1.5 rounded-lg group cursor-pointer transition-colors ${
           isActive 
             ? 'bg-discordex-hover text-discordex-text-primary' 
@@ -87,7 +93,9 @@ export const SidebarChannels: React.FC = () => {
     const catChannels = channelsByParent(category.id);
     return (
       <div key={category.id} className="space-y-0.5">
-        <div className="flex items-center justify-between px-2 text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider group/cat">
+        <div className="flex items-center justify-between px-2 text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider group/cat"
+          onContextMenu={(event) => openMenu(event, buildCategoryMenu(app, { server: activeServer, category }))}
+        >
           <button
             onClick={() => toggleCategory(category.id)}
             className="flex items-center gap-1 hover:text-discordex-text-primary transition-colors"
@@ -126,7 +134,9 @@ export const SidebarChannels: React.FC = () => {
     <div className="w-60 bg-discordex-secondary flex flex-col justify-between shrink-0 h-full border-r border-discordex-border/40 select-none">
       
       {/* Header */}
-      <div className="h-12 px-4 border-b border-discordex-border flex items-center justify-between shadow-sm relative group cursor-pointer hover:bg-discordex-hover transition-colors">
+      <div className="h-12 px-4 border-b border-discordex-border flex items-center justify-between shadow-sm relative group cursor-pointer hover:bg-discordex-hover transition-colors"
+        onContextMenu={(event) => openMenu(event, buildServerMenu(app, { server: activeServer }))}
+      >
         <span className="font-bold text-[14px] text-discordex-text-primary truncate">
           {activeServer.name}
         </span>

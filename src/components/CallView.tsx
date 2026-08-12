@@ -1,13 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Tooltip } from './SharedUI';
+import { useContextMenu } from './ContextMenu';
 import { PERMISSIONS, hasPermission } from '../lib/permissions';
+import { buildUserMenu } from '../lib/contextActions';
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare,
   PhoneOff, Wifi, Users, Volume2, VolumeX, Maximize, Minimize, MoveRight,
 } from 'lucide-react';
 
 export const CallView: React.FC = () => {
+  const app = useApp();
   const {
     callState,
     currentUser,
@@ -23,7 +26,9 @@ export const CallView: React.FC = () => {
     moveMemberBetweenChannels,
     setMemberMuted,
     setMemberDeafened,
-  } = useApp();
+  } = app;
+
+  const { openMenu } = useContextMenu();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
@@ -133,6 +138,18 @@ export const CallView: React.FC = () => {
             return (
               <div
                 key={p.id}
+                onContextMenu={(event) => {
+                  if (!callServer) return;
+                  const member = (serverMembers[callServer.id] || []).find((m) => m.userId === p.id);
+                  if (!member) return;
+                  openMenu(event, buildUserMenu(app, {
+                    serverId: callServer.id,
+                    member,
+                    voiceChannel: callState.channelId,
+                    muted: p.isMuted,
+                    deafened: deafenedMap[p.id],
+                  }));
+                }}
                 className={`bg-discordex-secondary border rounded-2xl overflow-hidden relative flex flex-col items-center justify-center transition-all duration-300 group ${
                   p.isSpeaking
                     ? 'border-primary ring-2 ring-primary/40 shadow-[0_0_12px_rgba(229,57,53,0.3)]'

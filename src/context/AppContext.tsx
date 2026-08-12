@@ -180,6 +180,9 @@ interface AppContextType {
   activeServerSettingsId: string | null;
   activeModal: 'create-server' | 'join-server' | 'create-channel' | 'create-category' | 'create-role' | 'ban-user' | 'kick-user' | 'profile-view' | null;
   selectedProfileUser: User | null;
+  modalPayload: unknown;
+  serverSettingsTab: string;
+  serverSettingsRoleId: string | null;
   incomingCall: { id: string; caller: User; type: 'voice' | 'video' } | null;
   toasts: { id: string; message: string; type: 'success' | 'error' | 'info' }[];
   isAppAdmin: boolean;
@@ -212,6 +215,10 @@ interface AppContextType {
   addChannel: (serverId: string, name: string, type: 'text' | 'voice', parentId?: string | null) => void;
   addCategory: (serverId: string, name: string) => void;
   deleteChannel: (serverId: string, channelId: string) => void;
+  updateChannelRow: (channelId: string, updates: { name?: string; description?: string; parent_id?: string | null }) => Promise<boolean>;
+  editMessage: (messageId: string, newContent: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
+  blockUser: (userId: string) => Promise<void>;
   sendMessage: (content: string, replyTo?: { userName: string; content: string }) => void;
   toggleReaction: (messageId: string, emoji: string) => void;
   startCall: (type: 'voice' | 'video', channelId: string, channelName: string, silent?: boolean, targetAvatar?: string) => void;
@@ -226,8 +233,10 @@ interface AppContextType {
   setActiveChannelId: (id: string | null) => void;
   setActiveDmId: (id: string | null) => void;
   openSettings: (tab?: string, serverId?: string | null) => void;
+  openServerTab: (serverId: string, tab: string) => void;
+  openRoleSettings: (serverId: string, roleId: string) => void;
   closeSettings: () => void;
-  openModal: (modal: AppContextType['activeModal'], user?: User) => void;
+  openModal: (modal: AppContextType['activeModal'], user?: User, payload?: unknown) => void;
   closeModal: () => void;
   addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
@@ -304,6 +313,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeServerSettingsId, setActiveServerSettingsId] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<AppContextType['activeModal']>(null);
   const [selectedProfileUser, setSelectedProfileUser] = useState<User | null>(null);
+  const [modalPayload, setModalPayload] = useState<unknown>(null);
+  const [serverSettingsTab, setServerSettingsTab] = useState('overview');
+  const [serverSettingsRoleId, setServerSettingsRoleId] = useState<string | null>(null);
   const [incomingCall, setIncomingCall] = useState<AppContextType['incomingCall']>(null);
   const [toasts, setToasts] = useState<AppContextType['toasts']>([]);
   const [callState, setCallState] = useState<CallState>(emptyCallState);
@@ -890,6 +902,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await loadChannelMessages(activeChannelId);
   };
 
+  const editMessage = async (messageId: string, newContent: string) => {
+    if (!currentUser || !newContent.trim()) return;
+    if (activeServerId && activeChannelId) {
+      const { error } = await supabase.from('messages').update({ content: newContent.trim() }).eq('id', messageId);
+      if (error) addToast(error.message, 'error');
+      else await loadChannelMessages(activeChannelId);
+    } else if (activeDmId) {
+      const { error } = await supabase.from('direct_messages').update({ content: newContent.trim() }).eq('id', messageId);
+      if (error) addToast(error.message, 'error');
+      else await loadDmMessages(activeDmId);
+    }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    if (!currentUser) return;
+    if (activeServerId && activeChannelId) {
+      const { error } = await supabase.from('messages').delete().eq('id', messageId);
+      if (error) addToast(error.message, 'error');
+      else await loadChannelMessages(activeChannelId);
+    } else if (activeDmId) {
+      const { error } = await supabase.from('direct_messages').delete().eq('id', messageId);
+      if (error) addToast(error.message, 'error');
+      else await loadDmMessages(activeDmId);
+    }
+  };
+
+  const blockUser = async (userId: string) => {
+    if (!currentUser || userId === currentUser.id) return;
+    const { error } = await supabase.from('blocks').insert({ blocker_id: currentUser.id, blocked_id: userId });
+    if (error) addToast(error.message, 'error');
+    else addToast('Usuario bloqueado.', 'success');
+  };
+
+  const updateChannelRow = async (channelId: string, updates: { name?: string; description?: string; parent_id?: string | null }) => {
+    const { error } = await supabase.from('channels').update(updates).eq('id', channelId);
+    if (error) {
+      addToast(error.message, 'error');
+      return false;
+    }
+    await refreshServers();
+    return true;
+  };
+
   const startCall = async (type: 'voice' | 'video', channelId: string, channelName: string, silent = false, targetAvatar?: string) => {
     if (!currentUser || callState.isActive) return;
     const startMuted = localStorage.getItem('discordex:start-muted') === 'true';
@@ -1256,19 +1311,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsSettingsOpen(true);
   };
 
+  const openServerTab = (serverId: string, tab: string) => {
+    setServerSettingsTab(tab);
+    setServerSettingsRoleId(null);
+    setActiveServerSettingsId(serverId);
+    setIsSettingsOpen(true);
+  };
+
+  const openRoleSettings = (serverId: string, roleId: string) => {
+    setServerSettingsTab('roles');
+    setServerSettingsRoleId(roleId);
+    setActiveServerSettingsId(serverId);
+    setIsSettingsOpen(true);
+  };
+
   const closeSettings = () => {
     setIsSettingsOpen(false);
     setActiveServerSettingsId(null);
   };
 
-  const openModal = (modal: AppContextType['activeModal'], user?: User) => {
+  const openModal = (modal: AppContextType['activeModal'], user?: User, payload?: unknown) => {
     setActiveModal(modal);
+    setModalPayload(payload ?? null);
     if (user) setSelectedProfileUser(user);
   };
 
   const closeModal = () => {
     setActiveModal(null);
     setSelectedProfileUser(null);
+    setModalPayload(null);
   };
 
   const updateCurrentUserProfile = async (displayName: string, bio: string, status: User['status'], avatarUrl?: string, username?: string) => {
@@ -1355,8 +1426,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isSettingsOpen,
       settingsTab,
       activeServerSettingsId,
+      serverSettingsTab,
+      serverSettingsRoleId,
       activeModal,
       selectedProfileUser,
+      modalPayload,
       incomingCall,
       toasts,
       isAppAdmin,
@@ -1389,6 +1463,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addChannel,
       addCategory,
       deleteChannel,
+      updateChannelRow,
+      editMessage,
+      deleteMessage,
+      blockUser,
       sendMessage,
       toggleReaction,
       startCall,
@@ -1403,6 +1481,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveChannelId,
       setActiveDmId,
       openSettings,
+      openServerTab,
+      openRoleSettings,
       closeSettings,
       openModal,
       closeModal,

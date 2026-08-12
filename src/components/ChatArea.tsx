@@ -6,7 +6,10 @@ import {
   Video, Phone, ArrowLeft, ImagePlus, Loader2
 } from 'lucide-react';
 import { Tooltip } from './SharedUI';
+import { useContextMenu } from './ContextMenu';
 import { supabase } from '../lib/supabase';
+import { PERMISSIONS, hasPermission } from '../lib/permissions';
+import { buildMessageMenu } from '../lib/contextActions';
 
 const isImageLine = (line: string): boolean => {
   const t = line.trim();
@@ -17,6 +20,7 @@ const isImageLine = (line: string): boolean => {
 };
 
 export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleSidebar }) => {
+  const app = useApp();
   const {
     servers,
     activeServerId,
@@ -31,8 +35,11 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
     callState,
     openModal,
     currentUser,
-    addToast
-  } = useApp();
+    addToast,
+    getMyPermissions,
+  } = app;
+
+  const { openMenu } = useContextMenu();
 
   const [inputVal, setInputVal] = useState('');
   const [replyTarget, setReplyTarget] = useState<{ userName: string; content: string } | null>(null);
@@ -168,6 +175,10 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
     msg.userName.toLowerCase().includes(searchVal.toLowerCase())
   );
 
+  const isDM = Boolean(!activeServerId && activeDmId);
+  const messagePerms = activeServerId ? getMyPermissions(activeServerId) : { isOwner: false, permissions: 0, topPosition: -1 };
+  const canManageMessages = messagePerms.isOwner || hasPermission(messagePerms.permissions, PERMISSIONS.MANAGE_MESSAGES);
+
   return (
     <div className="flex-1 bg-discordex-bg flex flex-col min-w-0 h-full relative">
       
@@ -293,7 +304,20 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
                 };
 
                 return (
-                  <div key={msg.id} className="group relative flex flex-col gap-1 hover:bg-discordex-surface/20 -mx-4 px-4 py-2 rounded-xl transition-colors">
+                  <div
+                    key={msg.id}
+                    onContextMenu={(event) => openMenu(
+                      event,
+                      buildMessageMenu(app, {
+                        message: msg,
+                        author: senderUserObj,
+                        isDM,
+                        canManageMessages,
+                        onReply: (message) => setReplyTarget({ userName: message.userName, content: message.content }),
+                      })
+                    )}
+                    className="group relative flex flex-col gap-1 hover:bg-discordex-surface/20 -mx-4 px-4 py-2 rounded-xl transition-colors"
+                  >
                     
                     {/* Reply quote indicator header */}
                     {msg.replyTo && (

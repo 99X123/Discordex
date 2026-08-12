@@ -39,10 +39,10 @@ const statusColor = (status: string) =>
   status === 'dnd' ? 'bg-discordex-danger' :
   'bg-discordex-text-secondary';
 
-export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> = ({ server, onClose }) => {
+export const ServerSettings: React.FC<{ server: Server; onClose: () => void; initialTab?: string; initialRoleId?: string | null }> = ({ server, onClose, initialTab, initialRoleId }) => {
   const { updateServerConfig, deleteChannel, refreshServers, serverMembers, currentUser, addToast, getMyPermissions, addCategory } = useApp();
 
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>(() => (initialTab as Tab) || 'overview');
   const [name, setName] = useState(server.name);
   const [description, setDescription] = useState(server.description || '');
   const [iconUploading, setIconUploading] = useState(false);
@@ -480,7 +480,7 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
         )}
 
         {tab === 'roles' && canManageRoles && (
-          <RoleSettings server={server} />
+          <RoleSettings server={server} initialRoleId={initialRoleId} />
         )}
 
         {tab === 'logs' && canViewLogs && (

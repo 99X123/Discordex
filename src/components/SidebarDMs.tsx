@@ -1,9 +1,12 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { Tooltip } from './SharedUI';
+import { useContextMenu } from './ContextMenu';
+import { buildDmMenu } from '../lib/contextActions';
 import { Users, Settings } from 'lucide-react';
 
 export const SidebarDMs: React.FC = () => {
+  const app = useApp();
   const { 
     dms, 
     activeDmId, 
@@ -11,7 +14,9 @@ export const SidebarDMs: React.FC = () => {
     currentUser, 
     openSettings, 
     openModal 
-  } = useApp();
+  } = app;
+
+  const { openMenu } = useContextMenu();
 
   return (
     <div className="w-60 bg-discordex-secondary flex flex-col justify-between shrink-0 h-full border-r border-discordex-border/40 select-none">
@@ -47,6 +52,7 @@ export const SidebarDMs: React.FC = () => {
                 <div
                   key={dm.id}
                   onClick={() => setActiveDmId(dm.id)}
+                  onContextMenu={(event) => openMenu(event, buildDmMenu(app, { dm }))}
                   className={`flex items-center gap-2.5 px-2 py-2 rounded-xl group cursor-pointer transition-all ${
                     isActive 
                       ? 'bg-discordex-hover text-discordex-text-primary' 

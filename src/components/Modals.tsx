@@ -4,19 +4,20 @@ import type { Server } from '../context/AppContext';
 import { X, Shield, Calendar, MessageSquare, Phone } from 'lucide-react';
 
 export const Modals: React.FC = () => {
-  const { 
-    activeModal, 
-    closeModal, 
-    selectedProfileUser, 
-    addServer, 
-    joinServer, 
-    addChannel, 
+const {
+    activeModal,
+    closeModal,
+    selectedProfileUser,
+    addServer,
+    joinServer,
+    addChannel,
     addCategory,
     activeServerId,
     servers,
     startCall,
     setActiveDmId,
-    setActiveServerId
+    setActiveServerId,
+    modalPayload,
   } = useApp();
 
   const [serverName, setServerName] = useState('');
@@ -30,10 +31,12 @@ export const Modals: React.FC = () => {
 
   useEffect(() => {
     if (activeModal === 'create-channel' && activeServer) {
-      setChannelParentId(activeServer.categories[0]?.id ?? null);
+      const payload = (modalPayload ?? null) as { parentId?: string | null; type?: 'text' | 'voice' } | null;
+      setChannelParentId(payload?.parentId !== undefined ? payload.parentId : (activeServer.categories[0]?.id ?? null));
+      if (payload?.type) setChannelType(payload.type);
       setChannelName('');
     }
-  }, [activeModal, activeServerId, activeServer]);
+  }, [activeModal, activeServerId, activeServer, modalPayload]);
 
   if (!activeModal) return null;
 

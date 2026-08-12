@@ -1,13 +1,9 @@
 import React, { useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import type { ServerMember } from '../context/AppContext';
-import { useContextMenu, type ContextMenuItem } from './ContextMenu';
-import { PERMISSIONS } from '../lib/permissions';
+import { useContextMenu } from './ContextMenu';
+import { buildUserMenu } from '../lib/contextActions';
 import { supabase } from '../lib/supabase';
-import {
-  Shield, ArrowUp, ArrowDown, PhoneOff,
-  MoveRight, LogOut, UserCircle2,
-} from 'lucide-react';
 
 const statusColor = (status: string) =>
   status === 'online' ? 'bg-discordex-success' :
@@ -16,31 +12,24 @@ const statusColor = (status: string) =>
   'bg-discordex-text-secondary';
 
 export const SidebarMembers: React.FC = () => {
+  const app = useApp();
   const {
     serverMembers,
     activeServerId,
     openModal,
     currentUser,
     servers,
-    serverRoles,
-    getMyPermissions,
-    addRoleToMember,
-    removeRoleFromMember,
-    promoteMember,
-    demoteMember,
-    kickMember,
-    disconnectMemberFromCall,
-    moveMemberBetweenChannels,
-  } = useApp();
+  } = app;
 
   const { openMenu } = useContextMenu();
   const lastMenuPosRef = useRef({ x: 0, y: 0 });
   const voiceByUserRef = useRef<Record<string, string>>({});
   const memberRef = useRef<ServerMember | null>(null);
+  const appRef = useRef(app);
+  appRef.current = app;
 
   const members = activeServerId ? (serverMembers[activeServerId] || []) : [];
   const activeServer = servers.find((server) => server.id === activeServerId);
-  const roles = activeServerId ? (serverRoles[activeServerId] || []) : [];
 
   const online = members.filter((m) => m.profile.status !== 'offline');
   const offline = members.filter((m) => m.profile.status === 'offline');
@@ -79,71 +68,7 @@ export const SidebarMembers: React.FC = () => {
     return data?.channel_id || null;
   };
 
-  // Submenu "Cargos": alterna cargos com checkbox, estilo Discord
-  const buildRoleToggleItems = (member: ServerMember): ContextMenuItem[] => {
-    const myPerms = getMyPermissions(activeServerId!);
-    const hasRoleIds = new Set(member.roles.map((role) => role.id));
-    const manageable = roles.filter((role) => myPerms.isOwner || role.position < myPerms.topPosition);
-    if (manageable.length === 0) {
-      return [{ label: 'Nenhum cargo gerenciável' }];
-    }
-    return manageable.map((role) => ({
-      label: role.name,
-      icon: <Shield className="w-4 h-4" style={{ color: role.color }} />,
-      checked: hasRoleIds.has(role.id),
-      keepOpen: true,
-      onClick: async () => {
-        const has = hasRoleIds.has(role.id);
-        const ok = has
-          ? await removeRoleFromMember(activeServerId!, member.userId, role.id)
-          : await addRoleToMember(activeServerId!, member.userId, role.id);
-        if (ok) reopenMemberMenu();
-      },
-    }));
-  };
-
-  const buildRoleSubmenuItems = (member: ServerMember, mode: 'promote' | 'demote'): ContextMenuItem[] => {
-    const myPerms = getMyPermissions(activeServerId!);
-    const targetTop = member.roles[0]?.position ?? -1;
-    const hasRoleIds = new Set(member.roles.map((role) => role.id));
-    const manageable = roles.filter((role) => myPerms.isOwner || role.position < myPerms.topPosition);
-
-    const list = mode === 'promote'
-      ? manageable.filter((role) => !hasRoleIds.has(role.id) && role.position > targetTop)
-      : manageable.filter((role) => hasRoleIds.has(role.id) && role.position > targetTop);
-
-    if (list.length === 0) {
-      return [{ label: mode === 'promote' ? 'Nenhum cargo superior' : 'Nenhum cargo acima para remover' }];
-    }
-    return list.map((role) => ({
-      label: role.name,
-      icon: <Shield className="w-4 h-4" style={{ color: role.color }} />,
-      onClick: () => {
-        if (mode === 'promote') void promoteMember(activeServerId!, member.userId, role.id);
-        else void demoteMember(activeServerId!, member.userId, role.id);
-      },
-    }));
-  };
-
-  const buildMoveSubmenu = (member: ServerMember, fromChannelId: string): ContextMenuItem[] => {
-    const targets = (activeServer?.channels || []).filter((channel) => channel.type === 'voice' && channel.id !== fromChannelId);
-    if (targets.length === 0) {
-      return [{ label: 'Nenhum canal de voz disponível' }];
-    }
-    return targets.map((channel) => ({
-      label: channel.name,
-      icon: <MoveRight className="w-4 h-4" />,
-      onClick: () => void moveMemberBetweenChannels(activeServerId!, member.userId, fromChannelId, channel.id),
-    }));
-  };
-
-  const reopenMemberMenu = () => {
-    if (!memberRef.current || !activeServerId) return;
-    const fresh = (serverMembers[activeServerId] || []).find((m) => m.id === memberRef.current!.id) || memberRef.current;
-    void openMemberMenu(fresh, lastMenuPosRef.current.x, lastMenuPosRef.current.y, false);
-  };
-
-  const openMemberMenu = async (
+  const openMemberMenu = (
     member: ServerMember,
     x: number,
     y: number,
@@ -151,86 +76,29 @@ export const SidebarMembers: React.FC = () => {
   ) => {
     if (!activeServerId) return;
     memberRef.current = member;
-    const { isOwner, permissions, topPosition } = getMyPermissions(activeServerId);
-    const targetTop = member.roles[0]?.position ?? -1;
-    const canManage = isOwner || topPosition > targetTop;
-    const hasPerm = (bit: number) => isOwner || (permissions & bit) === bit;
+    lastMenuPosRef.current = { x, y };
 
-    const buildItems = (voiceChannel: string | null): ContextMenuItem[] => {
-      const items: ContextMenuItem[] = [{
-        label: 'Ver informações do membro',
-        icon: <UserCircle2 className="w-4 h-4" />,
-        onClick: () => openModal('profile-view', { ...member.profile, role: (member.roles[0]?.name as ServerMember['profile']['role']) || undefined }),
-      }];
-
-      const canManageRoles = canManage && hasPerm(PERMISSIONS.MANAGE_ROLES);
-      if (canManageRoles) {
-        items.push({ divider: true });
-        items.push({
-          label: 'Cargos',
-          icon: <Shield className="w-4 h-4" />,
-          submenu: buildRoleToggleItems(member),
-        });
-        if (canManage && (hasPerm(PERMISSIONS.PROMOTE_MEMBERS) || hasPerm(PERMISSIONS.MANAGE_ROLES))) {
-          items.push({
-            label: 'Promover',
-            icon: <ArrowUp className="w-4 h-4" />,
-            submenu: buildRoleSubmenuItems(member, 'promote'),
-          });
-        }
-        if (canManage && (hasPerm(PERMISSIONS.DEMOTE_MEMBERS) || hasPerm(PERMISSIONS.MANAGE_ROLES))) {
-          items.push({
-            label: 'Rebaixar',
-            icon: <ArrowDown className="w-4 h-4" />,
-            submenu: buildRoleSubmenuItems(member, 'demote'),
-          });
-        }
-      }
-
-      if (canManage && voiceChannel && hasPerm(PERMISSIONS.DISCONNECT_MEMBERS)) {
-        items.push({
-          label: 'Desconectar da call',
-          icon: <PhoneOff className="w-4 h-4" />,
-          onClick: () => void disconnectMemberFromCall(activeServerId, member.userId, voiceChannel),
-        });
-      }
-      if (canManage && voiceChannel && hasPerm(PERMISSIONS.MOVE_MEMBERS)) {
-        items.push({
-          label: 'Mover de call',
-          icon: <MoveRight className="w-4 h-4" />,
-          submenu: buildMoveSubmenu(member, voiceChannel),
-        });
-      }
-
-      if (canManage && (hasPerm(PERMISSIONS.KICK_MEMBERS) || hasPerm(PERMISSIONS.MANAGE_MEMBERS))) {
-        items.push({ divider: true });
-        items.push({
-          label: 'Remover do grupo',
-          icon: <LogOut className="w-4 h-4" />,
-          danger: true,
-          onClick: () => {
-            if (window.confirm(`Remover ${member.profile.displayName} do grupo?`)) {
-              void kickMember(activeServerId, member.userId);
-            }
-          },
-        });
-      }
-
-      return items;
+    const reopen = () => {
+      if (!memberRef.current || !activeServerId) return;
+      const currentApp = appRef.current;
+      const fresh = (currentApp.serverMembers[activeServerId] || []).find((m) => m.id === memberRef.current!.id) || memberRef.current;
+      openMenu({ clientX: x, clientY: y }, buildUserMenu(currentApp, {
+        serverId: activeServerId,
+        member: fresh,
+        voiceChannel: voiceByUserRef.current[member.userId] ?? null,
+        reopen,
+      }));
     };
 
-    openMenu({ clientX: x, clientY: y }, buildItems(null));
+    reopen();
 
-    if (!fetchVoice) return;
-    let voiceChannel: string | null = null;
-    try {
-      voiceChannel = await getTargetVoiceChannel(member.userId);
-    } catch {
-      voiceChannel = null;
-    }
-    if (voiceChannel) {
-      voiceByUserRef.current[member.userId] = voiceChannel;
-      openMenu({ clientX: x, clientY: y }, buildItems(voiceChannel));
+    if (fetchVoice) {
+      void getTargetVoiceChannel(member.userId).then((voiceChannel) => {
+        if (voiceChannel) {
+          voiceByUserRef.current[member.userId] = voiceChannel;
+          reopen();
+        }
+      });
     }
   };
 
@@ -242,7 +110,7 @@ export const SidebarMembers: React.FC = () => {
         onClick={() => openModal('profile-view', { ...member.profile, role: (topRole?.name as ServerMember['profile']['role']) || undefined })}
         onContextMenu={(event) => {
           lastMenuPosRef.current = { x: event.clientX, y: event.clientY };
-          void openMemberMenu(member, event.clientX, event.clientY, true);
+          openMemberMenu(member, event.clientX, event.clientY, true);
         }}
         className="flex items-center gap-2 px-2 py-1.5 rounded-xl cursor-pointer hover:bg-discordex-surface/60 transition-colors group"
       >

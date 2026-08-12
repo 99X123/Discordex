@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Server, ServerRole } from '../context/AppContext';
+import { useContextMenu } from './ContextMenu';
+import { buildRoleMenu } from '../lib/contextActions';
 import { ALL_PERMISSIONS, hasPermission } from '../lib/permissions';
 import { getAuditLogs, AUDIT_ACTION_LABELS, type AuditLogRow } from '../services/roles';
 import {
@@ -10,7 +12,8 @@ import {
 const DEFAULT_ROLE_COLOR = '#99AAB5';
 const DEFAULT_ROLE_PERMS = 256 + 512 + 1024 + 2048;
 
-export const RoleSettings: React.FC<{ server: Server }> = ({ server }) => {
+export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | null }> = ({ server, initialRoleId }) => {
+  const app = useApp();
   const {
     serverRoles,
     serverChannelPerms,
@@ -24,14 +27,16 @@ export const RoleSettings: React.FC<{ server: Server }> = ({ server }) => {
     setChannelRolePermission,
     removeChannelRolePermission,
     addToast,
-  } = useApp();
+  } = app;
+
+  const { openMenu } = useContextMenu();
 
   const roles = serverRoles[server.id] || [];
   const members = serverMembers[server.id] || [];
   const channelPerms = serverChannelPerms[server.id] || [];
   const myPerms = getMyPermissions(server.id);
 
-  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(initialRoleId || null);
   const [name, setName] = useState('');
   const [color, setColor] = useState(DEFAULT_ROLE_COLOR);
   const [position, setPosition] = useState(0);
@@ -50,6 +55,10 @@ export const RoleSettings: React.FC<{ server: Server }> = ({ server }) => {
     setPosition(selectedRole.position);
     setDraftPermissions(selectedRole.permissions);
   }, [selectedRole]);
+
+  useEffect(() => {
+    if (initialRoleId) setSelectedRoleId(initialRoleId);
+  }, [initialRoleId]);
 
   const canManageThisRole = (role: ServerRole) =>
     myPerms.isOwner || role.position < myPerms.topPosition;
@@ -139,6 +148,7 @@ export const RoleSettings: React.FC<{ server: Server }> = ({ server }) => {
                 <button
                   key={role.id}
                   onClick={() => setSelectedRoleId(role.id)}
+                  onContextMenu={(event) => openMenu(event, buildRoleMenu(app, { server, role }))}
                   className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors ${
                     selected ? 'bg-discordex-surface text-discordex-text-primary' : 'hover:bg-discordex-surface/40 text-discordex-text-secondary'
                   }`}
