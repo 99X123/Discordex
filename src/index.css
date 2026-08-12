@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #0D0D10; /* bg-dark */
+  color: #FFFFFF;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1C1C22;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #303038;
+}
+
+/* Tooltip transition utility */
+.tooltip-trigger:hover .tooltip-content {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+/* Active ring effect for voice speaking */
+.speaking-ring {
+  box-shadow: 0 0 0 2px #E53935, 0 0 8px #E53935;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(28, 28, 34, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(48, 48, 56, 0.5);
+}
