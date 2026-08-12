@@ -151,8 +151,6 @@ interface AppContextType {
   setActiveDmId: (id: string | null) => void;
   openSettings: (tab?: string, serverId?: string | null) => void;
   closeSettings: () => void;
-  openServerSettings: (serverId: string, tab: 'overview' | 'channels' | 'members') => void;
-  updateUserStatus: (status: User['status']) => Promise<void>;
   openModal: (modal: AppContextType['activeModal'], user?: User) => void;
   closeModal: () => void;
   addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -223,7 +221,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAppAdmin, setIsAppAdmin] = useState(false);
   const [serverMembers, setServerMembers] = useState<Record<string, ServerMember[]>>({});
   const [voiceCounts, setVoiceCounts] = useState<Record<string, number>>({});
-  const [serverSettingsTab, setServerSettingsTab] = useState<'overview' | 'channels' | 'members'>('overview');
   const engineRef = useRef<VoiceCallEngine | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
 
