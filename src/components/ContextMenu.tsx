@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Check, ChevronRight } from 'lucide-react';
 
 export interface ContextMenuItem {
   label?: string;
@@ -7,6 +8,10 @@ export interface ContextMenuItem {
   danger?: boolean;
   success?: boolean;
   divider?: boolean;
+  checked?: boolean;
+  disabled?: boolean;
+  keepOpen?: boolean;
+  submenu?: ContextMenuItem[];
 }
 
 interface MenuState {
@@ -28,6 +33,68 @@ export const useContextMenu = () => {
   return context;
 };
 
+const MENU_WIDTH = 240;
+
+const MenuList: React.FC<{ items: ContextMenuItem[]; onClose: () => void }> = ({ items, onClose }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [subLeft, setSubLeft] = useState(true);
+
+  const handleEnter = (index: number, item: ContextMenuItem) => {
+    if (item.submenu && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setSubLeft(rect.right + 8 + MENU_WIDTH <= window.innerWidth);
+      setOpenIndex(index);
+    } else {
+      setOpenIndex(null);
+    }
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative min-w-[200px] max-w-[260px] bg-discordex-surface border border-discordex-border rounded-xl p-1.5 shadow-2xl animate-fade-in"
+    >
+      {items.map((item, index) => (
+        <React.Fragment key={index}>
+          {item.divider && <div className="h-px bg-discordex-border my-1" />}
+          {item.label !== undefined && item.label !== '' && (
+            <div className="relative" onMouseEnter={() => handleEnter(index, item)}>
+              <button
+                disabled={item.disabled}
+                onClick={() => {
+                  if (!item.submenu && !item.keepOpen) onClose();
+                  item.onClick?.();
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left ${
+                  item.danger
+                    ? 'text-discordex-danger hover:bg-discordex-danger/10'
+                    : item.success
+                      ? 'text-discordex-success hover:bg-discordex-success/10'
+                      : 'text-discordex-text-primary hover:bg-discordex-hover'
+                } ${item.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                {item.icon}
+                <span className="truncate flex-1">{item.label}</span>
+                {item.checked && <Check className="w-4 h-4 shrink-0" />}
+                {item.submenu && <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />}
+              </button>
+              {openIndex === index && item.submenu && (
+                <div
+                  className="absolute top-0 z-10"
+                  style={subLeft ? { left: '100%' } : { right: '100%' }}
+                >
+                  <MenuList items={item.submenu} onClose={onClose} />
+                </div>
+              )}
+            </div>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
+
 export const ContextMenuProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [menu, setMenu] = useState<MenuState | null>(null);
 
@@ -35,9 +102,8 @@ export const ContextMenuProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const openMenu = useCallback<ContextMenuContextType['openMenu']>((event, items) => {
     event.preventDefault?.();
-    const menuWidth = 220;
-    const menuHeight = items.length * 38 + 16;
-    const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8);
+    const menuHeight = items.reduce((acc, item) => acc + (item.divider ? 9 : 40), 20);
+    const x = Math.min(event.clientX, window.innerWidth - MENU_WIDTH - 8);
     const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8);
     setMenu({ x: Math.max(8, x), y: Math.max(8, y), items });
   }, []);
@@ -64,34 +130,12 @@ export const ContextMenuProvider: React.FC<{ children: React.ReactNode }> = ({ c
       {children}
       {menu && (
         <div
-          className="fixed z-[100] min-w-[200px] max-w-[260px] bg-discordex-surface border border-discordex-border rounded-xl p-1.5 shadow-2xl animate-fade-in"
+          className="fixed z-[100]"
           style={{ left: menu.x, top: menu.y }}
           onContextMenu={(event) => event.preventDefault()}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          {menu.items.map((item, index) => (
-            <React.Fragment key={index}>
-              {item.divider && <div className="h-px bg-discordex-border my-1" />}
-              {item.label !== undefined && item.label !== '' && (
-                <button
-                  onClick={() => {
-                    closeMenu();
-                    item.onClick?.();
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left ${
-                    item.danger
-                      ? 'text-discordex-danger hover:bg-discordex-danger/10'
-                      : item.success
-                        ? 'text-discordex-success hover:bg-discordex-success/10'
-                        : 'text-discordex-text-primary hover:bg-discordex-hover'
-                  }`}
-                >
-                  {item.icon}
-                  <span className="truncate">{item.label}</span>
-                </button>
-              )}
-            </React.Fragment>
-          ))}
+          <MenuList items={menu.items} onClose={closeMenu} />
         </div>
       )}
     </ContextMenuContext.Provider>
