@@ -13,6 +13,7 @@ import { Modals } from './components/Modals';
 import { ToastContainer } from './components/SharedUI';
 import { ContextMenuProvider } from './components/ContextMenu';
 import { AuthPage } from './components/AuthPage';
+import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { supabase } from './lib/supabase';
 import { Menu } from 'lucide-react';
 
@@ -86,6 +87,9 @@ const DashboardContent: React.FC = () => {
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryPending, setRecoveryPending] = useState(() =>
+    typeof window !== 'undefined' && window.location.hash.includes('type=recovery')
+  );
 
   useEffect(() => {
     const staleSession = async () => {
@@ -101,7 +105,8 @@ function App() {
     };
     staleSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'PASSWORD_RECOVERY') setRecoveryPending(true);
       setSession(nextSession);
     });
 
@@ -112,6 +117,19 @@ function App() {
 
   if (loading) {
     return <div className="h-screen bg-discordex-bg text-discordex-text-primary flex items-center justify-center text-sm">Carregando...</div>;
+  }
+
+  if (recoveryPending) {
+    return (
+      <ResetPasswordPage
+        onComplete={async () => {
+          await supabase.auth.signOut().catch(() => { /* ignore */ });
+          setRecoveryPending(false);
+          setSession(null);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }}
+      />
+    );
   }
 
   if (!session) {

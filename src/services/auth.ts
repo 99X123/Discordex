@@ -107,7 +107,7 @@ export async function resendVerification(email: string): Promise<{ success: bool
 /** Envia email de recuperação de senha */
 export async function resetPassword(email: string): Promise<{ success: boolean; message: string }> {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`,
+    redirectTo: window.location.origin,
   });
 
   if (error) {
