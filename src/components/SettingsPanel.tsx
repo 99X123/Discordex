@@ -29,7 +29,6 @@ export const SettingsPanel: React.FC = () => {
   const [startMuted, setStartMuted] = useState(localStorage.getItem('discordex:start-muted') === 'true');
   const [startCamera, setStartCamera] = useState(localStorage.getItem('discordex:start-camera') !== 'false');
   const [echoCancellation, setEchoCancellation] = useState(localStorage.getItem('discordex:echo-cancellation') !== 'false');
-  const [noiseSuppression, setNoiseSuppression] = useState(localStorage.getItem('discordex:noise-suppression') !== 'false');
   const [inputDevice, setInputDevice] = useState(localStorage.getItem('discordex:input-device') || '');
   const [cameraDevice, setCameraDevice] = useState(localStorage.getItem('discordex:camera-device') || '');
   const [videoQuality, setVideoQuality] = useState(localStorage.getItem('discordex:video-quality') || 'auto');
@@ -123,7 +122,6 @@ export const SettingsPanel: React.FC = () => {
     localStorage.setItem('discordex:start-muted', String(startMuted));
     localStorage.setItem('discordex:start-camera', String(startCamera));
     localStorage.setItem('discordex:echo-cancellation', String(echoCancellation));
-    localStorage.setItem('discordex:noise-suppression', String(noiseSuppression));
     localStorage.setItem('discordex:input-device', inputDevice);
     localStorage.setItem('discordex:camera-device', cameraDevice);
     localStorage.setItem('discordex:video-quality', videoQuality);
@@ -326,7 +324,6 @@ export const SettingsPanel: React.FC = () => {
                 { label: 'Entrar mutado', value: startMuted, setter: setStartMuted, icon: Mic },
                 { label: 'Abrir camera em chamadas de video', value: startCamera, setter: setStartCamera, icon: Video },
                 { label: 'Cancelamento de eco', value: echoCancellation, setter: setEchoCancellation, icon: Monitor },
-                { label: 'Supressao de ruido', value: noiseSuppression, setter: setNoiseSuppression, icon: Mic },
               ].map((option) => {
                 const Icon = option.icon;
                 return (
