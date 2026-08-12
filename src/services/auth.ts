@@ -90,6 +90,20 @@ export async function logout(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/** Reenvia o email de confirmacao de cadastro */
+export async function resendVerification(email: string): Promise<{ success: boolean; message: string }> {
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: window.location.origin },
+  });
+
+  if (error) {
+    return { success: false, message: translateAuthError(error.message) };
+  }
+  return { success: true, message: 'Email de verificacao reenviado. Confira sua caixa de entrada.' };
+}
+
 /** Envia email de recuperação de senha */
 export async function resetPassword(email: string): Promise<{ success: boolean; message: string }> {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
