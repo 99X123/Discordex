@@ -369,6 +369,48 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      dm_call_signals: {
+        Row: {
+          id: string;
+          call_room: string;
+          from_user: string;
+          to_user: string;
+          type: 'offer' | 'answer' | 'ice-candidate';
+          payload: Json;
+          created_at: string;
+        };
+        Insert: {
+          call_room: string;
+          from_user: string;
+          to_user: string;
+          type: 'offer' | 'answer' | 'ice-candidate';
+          payload: Json;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      dm_call_rings: {
+        Row: {
+          id: string;
+          caller_id: string;
+          callee_id: string;
+          call_room: string;
+          type: 'voice' | 'video';
+          status: 'ringing' | 'accepted' | 'declined';
+          created_at: string;
+        };
+        Insert: {
+          caller_id: string;
+          callee_id: string;
+          call_room: string;
+          type: 'voice' | 'video';
+          status?: 'ringing' | 'accepted' | 'declined';
+        };
+        Update: {
+          status?: 'ringing' | 'accepted' | 'declined';
+        };
+        Relationships: [];
+      };
       app_admins: {
         Row: {
           user_id: string;

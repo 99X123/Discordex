@@ -7,6 +7,7 @@ import { SidebarDMs } from './components/SidebarDMs';
 import { ChatArea } from './components/ChatArea';
 import { SidebarMembers } from './components/SidebarMembers';
 import { CallView } from './components/CallView';
+import { IncomingCallOverlay } from './components/IncomingCallOverlay';
 import { FriendsView } from './components/FriendsView';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Modals } from './components/Modals';
@@ -102,6 +103,7 @@ const DashboardContent: React.FC = () => {
       <SettingsPanel />
       <Modals />
       <ToastContainer />
+      <IncomingCallOverlay />
 
     </div>
   );

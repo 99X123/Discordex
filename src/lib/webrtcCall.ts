@@ -28,6 +28,7 @@ stream: MediaStream;
   onScreenStream?: (userId: string, stream: MediaStream) => void;
   onScreenStreamEnd?: (userId: string) => void;
   onParticipantJoined: () => void;
+  onRemoteLeave?: () => void;
   onError: (message: string) => void;
 }
 
@@ -37,6 +38,15 @@ interface Peer {
   stream?: MediaStream;
   screenSender?: RTCRtpSender;
   screenStream?: MediaStream;
+}
+
+interface DmPresenceMeta {
+  id: string;
+  name: string;
+  avatar: string;
+  muted: boolean;
+  camera: boolean;
+  screen: boolean;
 }
 
 const fallbackAvatar = (name: string) =>
@@ -55,6 +65,7 @@ export class VoiceCallEngine {
   private stopped = false;
   private screenTrack: MediaStreamTrack | null = null;
   private screenStream: MediaStream | null = null;
+  private dmRoom: string | null = null;
 
   constructor(opts: VoiceEngineOptions) {
     this.opts = opts;
@@ -70,13 +81,15 @@ export class VoiceCallEngine {
       isCameraOn: this.opts.startCamera,
       isScreenSharing: false,
     };
-    this.participants.set(this.opts.userId, me);
+this.participants.set(this.opts.userId, me);
     this.opts.stream.getAudioTracks().forEach((track) => { track.enabled = !this.opts.startMuted; });
     this.opts.stream.getVideoTracks().forEach((track) => { track.enabled = this.opts.startCamera; });
     this.update();
     this.startSpeakingDetection();
 
-    if (!this.opts.isServerChannel) return;
+    if (!this.opts.isServerChannel) {
+      return await this.joinDmCall();
+    }
 
     this.realtime = this.opts.supabase.channel(`webrtc:${this.opts.channelId}`)
       .on(
@@ -119,7 +132,7 @@ export class VoiceCallEngine {
         isCameraOn: st.camera_enabled,
         isScreenSharing: false,
       });
-      this.opts.onParticipantJoined();
+this.opts.onParticipantJoined();
       await this.createPeer(st.user_id);
       this.update();
     }
@@ -129,8 +142,12 @@ export class VoiceCallEngine {
     this.stopped = true;
     cancelAnimationFrame(this.rafId);
     if (this.realtime) {
+      if (this.dmRoom) {
+        await this.realtime.untrack().catch(() => { /* ignore */ });
+      }
       await this.opts.supabase.removeChannel(this.realtime);
       this.realtime = null;
+      this.dmRoom = null;
     }
     for (const peer of this.peers.values()) {
       try { peer.pc.close(); } catch { /* ignore */ }
@@ -140,7 +157,7 @@ export class VoiceCallEngine {
       try { await this.audioCtx.close(); } catch { /* ignore */ }
       this.audioCtx = null;
     }
-    this.participants.clear();
+this.participants.clear();
   }
 
   async setMuted(muted: boolean) {
@@ -153,6 +170,8 @@ export class VoiceCallEngine {
         .update({ muted })
         .eq('channel_id', this.opts.channelId)
         .eq('user_id', this.opts.userId);
+    } else if (this.realtime && this.dmRoom) {
+      void this.trackDmPresence({ muted });
     }
   }
 
@@ -166,6 +185,8 @@ export class VoiceCallEngine {
         .update({ camera_enabled: enabled })
         .eq('channel_id', this.opts.channelId)
         .eq('user_id', this.opts.userId);
+    } else if (this.realtime && this.dmRoom) {
+      void this.trackDmPresence({ camera: enabled });
     }
   }
 
@@ -204,6 +225,8 @@ export class VoiceCallEngine {
         .update({ screen_sharing: sharing })
         .eq('channel_id', this.opts.channelId)
         .eq('user_id', this.opts.userId);
+    } else if (this.realtime && this.dmRoom) {
+      void this.trackDmPresence({ screen: sharing });
     }
   }
 
@@ -237,14 +260,125 @@ export class VoiceCallEngine {
         avatar: (data as { avatar_url?: string | null }).avatar_url || fallbackAvatar((data as { display_name?: string }).display_name || 'DX'),
       };
     }
-    return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
+return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
   }
 
   private async sendSignal(toUserId: string, type: string, payload: unknown) {
-    if (!this.opts.isServerChannel) return;
+    if (!this.opts.isServerChannel) {
+      if (!this.dmRoom) return;
+      await this.opts.supabase
+        .from('dm_call_signals')
+        .insert({ call_room: this.dmRoom, from_user: this.opts.userId, to_user: toUserId, type, payload });
+      return;
+    }
     await this.opts.supabase
       .from('webrtc_signals')
       .insert({ channel_id: this.opts.channelId, from_user: this.opts.userId, to_user: toUserId, type, payload });
+  }
+
+  private async joinDmCall() {
+    const roomKey = [this.opts.userId, this.opts.channelId].sort().join(':');
+    this.dmRoom = roomKey;
+
+    const channel = this.opts.supabase.channel(`dm-call:${roomKey}`, {
+      config: { presence: { key: this.opts.userId, enabled: true } },
+    });
+
+    channel.on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'dm_call_signals', filter: `call_room=eq.${roomKey}` },
+      async (payload) => {
+        const row = payload.new as { id?: string; from_user?: string; to_user?: string; type?: string; payload?: unknown } | null;
+        if (!row || !row.from_user || row.from_user === this.opts.userId) return;
+        if (row.to_user && row.to_user !== this.opts.userId) return;
+        await this.handleSignal(row.from_user, row.type || '', row.payload);
+        if (row.id) {
+          try {
+            await this.opts.supabase.from('dm_call_signals').delete().eq('id', row.id);
+          } catch { /* ignore */ }
+        }
+      }
+    );
+
+    channel.on('presence', { event: 'sync' }, () => { void this.syncDmPresence(); });
+    channel.on('presence', { event: 'join' }, () => { void this.syncDmPresence(); });
+    channel.on('presence', { event: 'leave' }, () => { void this.syncDmPresence(); });
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        void this.trackDmPresence();
+      }
+    });
+    this.realtime = channel;
+
+    await this.trackDmPresence();
+    await this.syncDmPresence();
+    this.update();
+  }
+
+  private async trackDmPresence(overrides: Partial<DmPresenceMeta> = {}) {
+    if (!this.realtime || !this.dmRoom) return;
+    const p = this.participants.get(this.opts.userId);
+    await this.realtime.track({
+      id: this.opts.userId,
+      name: p?.name || this.opts.displayName,
+      avatar: p?.avatar || this.opts.avatar,
+      muted: p?.isMuted ?? this.opts.startMuted,
+      camera: p?.isCameraOn ?? this.opts.startCamera,
+      screen: p?.isScreenSharing ?? false,
+      ...overrides,
+    }).catch(() => { /* ignore */ });
+  }
+
+  private getDmPresenceEntry(state: Record<string, DmPresenceMeta[]>, id: string): DmPresenceMeta | undefined {
+    for (const key of Object.keys(state)) {
+      const entries = state[key];
+      const entry = Array.isArray(entries) ? entries[entries.length - 1] : entries;
+      if (entry?.id === id) return entry;
+    }
+    return undefined;
+  }
+
+  private async syncDmPresence() {
+    if (!this.realtime || !this.dmRoom) return;
+    const state = this.realtime.presenceState<DmPresenceMeta>();
+    const presentIds = new Set<string>([this.opts.userId]);
+    for (const key of Object.keys(state)) {
+      const entries = state[key];
+      const entry = Array.isArray(entries) ? entries[entries.length - 1] : entries;
+      if (entry?.id) presentIds.add(entry.id);
+    }
+
+    for (const [remoteId, peer] of [...this.peers.entries()]) {
+      if (peer && !presentIds.has(remoteId)) {
+        this.removePeer(remoteId);
+        this.opts.onRemoteLeave?.();
+      }
+    }
+
+    for (const id of presentIds) {
+      if (id === this.opts.userId || this.peers.has(id)) continue;
+      const entry = this.getDmPresenceEntry(state, id);
+      let name = entry?.name || '';
+      let avatar = entry?.avatar || '';
+      if (!name) {
+        const profile = await this.fetchProfile(id);
+        name = profile.name;
+        avatar = profile.avatar;
+      }
+      this.participants.set(id, {
+        id,
+        name,
+        avatar: avatar || fallbackAvatar(name || 'DX'),
+        isSpeaking: false,
+        isMuted: entry?.muted ?? false,
+        isCameraOn: entry?.camera ?? false,
+        isScreenSharing: entry?.screen ?? false,
+      });
+      this.opts.onParticipantJoined();
+      await this.createPeer(id);
+    }
+    this.update();
   }
 
   private async createPeer(remoteUserId: string) {

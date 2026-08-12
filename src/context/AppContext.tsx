@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { createChannel as createChannelRecord } from '../services/channels';
 import { createServer, deleteServer as deleteServerRecord, extractInviteCode, getMyServers, joinServerViaInvite, leaveServer, updateServer as updateServerRecord } from '../services/servers';
@@ -89,6 +90,7 @@ export interface CallState {
   isCameraOn: boolean;
   isScreenSharing: boolean;
   isSpeakerMuted: boolean;
+  ringing: boolean;
   participants: {
     id: string;
     name: string;
@@ -127,6 +129,7 @@ interface AppContextType {
   activeServerSettingsId: string | null;
   activeModal: 'create-server' | 'join-server' | 'create-channel' | 'create-role' | 'ban-user' | 'kick-user' | 'profile-view' | null;
   selectedProfileUser: User | null;
+  incomingCall: { id: string; caller: User; type: 'voice' | 'video' } | null;
   toasts: { id: string; message: string; type: 'success' | 'error' | 'info' }[];
   isAppAdmin: boolean;
   serverMembers: Record<string, ServerMember[]>;
@@ -140,8 +143,10 @@ interface AppContextType {
   deleteChannel: (serverId: string, channelId: string) => void;
   sendMessage: (content: string, replyTo?: { userName: string; content: string }) => void;
   toggleReaction: (messageId: string, emoji: string) => void;
-  startCall: (type: 'voice' | 'video', channelId: string, channelName: string) => void;
+  startCall: (type: 'voice' | 'video', channelId: string, channelName: string, silent?: boolean) => void;
   endCall: () => void;
+  answerCall: () => void;
+  declineCall: () => void;
   toggleMute: () => void;
   toggleCamera: () => void;
   toggleScreenShare: () => void;
@@ -192,12 +197,23 @@ const emptyCallState: CallState = {
   isCameraOn: false,
   isScreenSharing: false,
   isSpeakerMuted: false,
+  ringing: false,
   participants: [],
   localStream: null,
   screenStream: null,
   remoteStreams: {},
   remoteScreenStreams: {},
 };
+
+interface RingRow {
+  id: string;
+  caller_id: string;
+  callee_id: string;
+  call_room: string;
+  type: 'voice' | 'video';
+  status: 'ringing' | 'accepted' | 'declined';
+  created_at: string;
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -216,6 +232,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeServerSettingsId, setActiveServerSettingsId] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<AppContextType['activeModal']>(null);
   const [selectedProfileUser, setSelectedProfileUser] = useState<User | null>(null);
+  const [incomingCall, setIncomingCall] = useState<AppContextType['incomingCall']>(null);
   const [toasts, setToasts] = useState<AppContextType['toasts']>([]);
   const [callState, setCallState] = useState<CallState>(emptyCallState);
   const [isAppAdmin, setIsAppAdmin] = useState(false);
@@ -223,6 +240,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [voiceCounts, setVoiceCounts] = useState<Record<string, number>>({});
   const engineRef = useRef<VoiceCallEngine | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const callTypeRef = useRef<'server' | 'dm' | null>(null);
+  const callStateRef = useRef<CallState>(emptyCallState);
+  const callActiveRef = useRef(false);
+  const callerRingChannelRef = useRef<RealtimeChannel | null>(null);
+  const callerRingIdRef = useRef<string | null>(null);
+  const ringTimeoutRef = useRef<number | null>(null);
+  const remoteLeaveTimerRef = useRef<number | null>(null);
 
   const activeServer = useMemo(() => serverRows.find((server) => server.id === activeServerId), [serverRows, activeServerId]);
 
@@ -344,6 +368,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setConnectionState('online');
   };
 
+  const getProfileUser = async (userId: string): Promise<User | null> => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+    return data ? toUser(data) : null;
+  };
+
   useEffect(() => {
     void loadCurrentUser();
     void loadServers();
@@ -383,6 +412,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       void supabase.removeChannel(channel);
     };
   }, []);
+
+  useEffect(() => {
+    callStateRef.current = callState;
+    callActiveRef.current = callState.isActive;
+  }, [callState]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase.channel(`dm-call-rings-in:${currentUser.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_call_rings', filter: `callee_id=eq.${currentUser.id}` }, async (payload) => {
+        const row = payload.new as RingRow | null;
+        if (!row || row.status !== 'ringing') return;
+        if (callActiveRef.current) {
+          try {
+            await supabase.from('dm_call_rings').update({ status: 'declined' }).eq('id', row.id);
+          } catch { /* ignore */ }
+          return;
+        }
+        const profile = await getProfileUser(row.caller_id);
+        if (!profile) return;
+        setIncomingCall({ id: row.id, caller: profile, type: row.type });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dm_call_rings', filter: `callee_id=eq.${currentUser.id}` }, (payload) => {
+        const row = payload.new as RingRow | null;
+        if (!row) return;
+        setIncomingCall((prev) => (prev && prev.id === row.id ? null : prev));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dm_call_rings', filter: `callee_id=eq.${currentUser.id}` }, (payload) => {
+        const row = payload.old as RingRow | null;
+        if (!row) return;
+        setIncomingCall((prev) => (prev && prev.id === row.id ? null : prev));
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   const loadChannelMessages = async (channelId: string) => {
     const { data } = await supabase
@@ -620,11 +688,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await loadChannelMessages(activeChannelId);
   };
 
-  const startCall = async (type: 'voice' | 'video', channelId: string, channelName: string) => {
+  const startCall = async (type: 'voice' | 'video', channelId: string, channelName: string, silent = false) => {
     if (!currentUser || callState.isActive) return;
     const startMuted = localStorage.getItem('discordex:start-muted') === 'true';
     const startCamera = type === 'video' && localStorage.getItem('discordex:start-camera') !== 'false';
     const isServerVoice = servers.some((server) => server.channels.some((channel) => channel.id === channelId && channel.type === 'voice'));
+    callTypeRef.current = isServerVoice ? 'server' : 'dm';
 
     playJoinSound();
 
@@ -671,6 +740,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isCameraOn: startCamera,
       isScreenSharing: false,
       isSpeakerMuted: false,
+      ringing: !isServerVoice && !silent,
       participants: [{ id: currentUser.id, name: currentUser.displayName, avatar: currentUser.avatar, isSpeaking: false, isMuted: startMuted, isCameraOn: startCamera, isScreenSharing: false }],
       localStream: stream,
       screenStream: null,
@@ -688,6 +758,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCallState(emptyCallState);
         return;
       }
+    }
+
+    if (!isServerVoice && !silent) {
+      const roomKey = [currentUser.id, channelId].sort().join(':');
+      const { data: ring, error: ringError } = await supabase
+        .from('dm_call_rings')
+        .insert({ caller_id: currentUser.id, callee_id: channelId, call_room: roomKey, type })
+        .select('id')
+        .single();
+      if (ringError || !ring) {
+        addToast('Nao foi possivel iniciar a chamada.', 'error');
+        stream.getTracks().forEach((track) => track.stop());
+        setCallState(emptyCallState);
+        return;
+      }
+      callerRingIdRef.current = ring.id;
+
+      callerRingChannelRef.current = supabase.channel(`dm-call-ring:${callerRingIdRef.current}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dm_call_rings', filter: `id=eq.${callerRingIdRef.current}` }, async (payload) => {
+          const row = payload.new as RingRow | null;
+          if (!row) return;
+          if (row.status === 'declined') {
+            addToast('Chamada recusada.', 'info');
+            await endCall();
+          } else if (row.status === 'accepted') {
+            setCallState((prev) => ({ ...prev, ringing: false }));
+            if (ringTimeoutRef.current) { clearTimeout(ringTimeoutRef.current); ringTimeoutRef.current = null; }
+            if (callerRingChannelRef.current) {
+              await supabase.removeChannel(callerRingChannelRef.current).catch(() => { /* ignore */ });
+              callerRingChannelRef.current = null;
+            }
+          }
+        })
+        .subscribe();
+
+      ringTimeoutRef.current = window.setTimeout(() => {
+        if (!callStateRef.current.isActive) return;
+        addToast('Chamada sem resposta.', 'info');
+        void endCall();
+      }, 60000);
     }
 
     let iceServers: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302'] }];
@@ -715,6 +825,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       startCamera,
       videoBitrate,
       onUpdate: (participants: CallParticipantInfo[]) => {
+        if (participants.length >= 2 && remoteLeaveTimerRef.current) {
+          clearTimeout(remoteLeaveTimerRef.current);
+          remoteLeaveTimerRef.current = null;
+        }
         setCallState((prev) => ({
           ...prev,
           participants: participants.map((p) => ({ ...p })),
@@ -743,6 +857,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       },
       onParticipantJoined: () => playPopSound(),
+      onRemoteLeave: () => {
+        if (callTypeRef.current !== 'dm') return;
+        if (remoteLeaveTimerRef.current) clearTimeout(remoteLeaveTimerRef.current);
+        remoteLeaveTimerRef.current = window.setTimeout(() => {
+          remoteLeaveTimerRef.current = null;
+          const current = callStateRef.current;
+          if (current.isActive && current.participants.length <= 1) {
+            void endCall();
+          }
+        }, 3000);
+      },
       onError: (message) => addToast(message, 'error'),
     });
 
@@ -758,6 +883,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const endCall = async () => {
+    const current = callStateRef.current;
+    if (ringTimeoutRef.current) { clearTimeout(ringTimeoutRef.current); ringTimeoutRef.current = null; }
+    if (remoteLeaveTimerRef.current) { clearTimeout(remoteLeaveTimerRef.current); remoteLeaveTimerRef.current = null; }
+    if (callerRingIdRef.current) {
+      try {
+        await supabase.from('dm_call_rings').delete().eq('id', callerRingIdRef.current);
+      } catch { /* ignore */ }
+      callerRingIdRef.current = null;
+    }
+    if (callerRingChannelRef.current) {
+      await supabase.removeChannel(callerRingChannelRef.current).catch(() => { /* ignore */ });
+      callerRingChannelRef.current = null;
+    }
     if (engineRef.current) {
       await engineRef.current.leave();
       engineRef.current = null;
@@ -766,15 +904,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       screenStreamRef.current.getTracks().forEach((track) => track.stop());
       screenStreamRef.current = null;
     }
-    if (callState.channelId && currentUser) {
-      await supabase.from('voice_states').delete().eq('channel_id', callState.channelId).eq('user_id', currentUser.id);
+    if (callTypeRef.current === 'server' && current.channelId && currentUser) {
+      await supabase.from('voice_states').delete().eq('channel_id', current.channelId).eq('user_id', currentUser.id);
     }
-    if (callState.localStream) {
-      callState.localStream.getTracks().forEach((track) => track.stop());
+    callTypeRef.current = null;
+    if (current.localStream) {
+      current.localStream.getTracks().forEach((track) => track.stop());
     }
     setCallState(emptyCallState);
+    setIncomingCall(null);
     playLeaveSound();
     addToast('Chamada encerrada.', 'info');
+  };
+
+  const answerCall = async () => {
+    if (!incomingCall || !currentUser) return;
+    const { id, caller, type } = incomingCall;
+    setIncomingCall(null);
+    try {
+      await supabase.from('dm_call_rings').update({ status: 'accepted' }).eq('id', id);
+    } catch { /* ignore */ }
+    startCall(type, caller.id, caller.displayName, true);
+  };
+
+  const declineCall = async () => {
+    if (!incomingCall || !currentUser) return;
+    const { id } = incomingCall;
+    setIncomingCall(null);
+    try {
+      await supabase.from('dm_call_rings').update({ status: 'declined' }).eq('id', id);
+    } catch { /* ignore */ }
   };
 
   const toggleMute = () => {
@@ -783,7 +942,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCallState((prev) => ({ ...prev, isMuted: next, participants: prev.participants.map((p) => p.id === currentUser?.id ? { ...p, isMuted: next } : p) }));
     if (engineRef.current) {
       void engineRef.current.setMuted(next);
-    } else if (callState.channelId && currentUser) {
+    } else if (callTypeRef.current === 'server' && callState.channelId && currentUser) {
       void supabase.from('voice_states').update({ muted: next }).eq('channel_id', callState.channelId).eq('user_id', currentUser.id);
     }
   };
@@ -794,7 +953,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCallState((prev) => ({ ...prev, isCameraOn: next, participants: prev.participants.map((p) => p.id === currentUser?.id ? { ...p, isCameraOn: next } : p) }));
     if (engineRef.current) {
       void engineRef.current.setCamera(next);
-    } else if (callState.channelId && currentUser) {
+    } else if (callTypeRef.current === 'server' && callState.channelId && currentUser) {
       void supabase.from('voice_states').update({ camera_enabled: next }).eq('channel_id', callState.channelId).eq('user_id', currentUser.id);
     }
   };
@@ -817,7 +976,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
     if (engineRef.current) {
       void engineRef.current.setScreenTrack(null);
-    } else if (callState.channelId && currentUser) {
+    } else if (callTypeRef.current === 'server' && callState.channelId && currentUser) {
       void supabase.from('voice_states').update({ screen_sharing: false }).eq('channel_id', callState.channelId).eq('user_id', currentUser.id);
     }
   };
@@ -986,6 +1145,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       activeServerSettingsId,
       activeModal,
       selectedProfileUser,
+      incomingCall,
       toasts,
       isAppAdmin,
       serverMembers,
@@ -1001,6 +1161,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toggleReaction,
       startCall,
       endCall,
+      answerCall,
+      declineCall,
       toggleMute,
       toggleCamera,
       toggleScreenShare,

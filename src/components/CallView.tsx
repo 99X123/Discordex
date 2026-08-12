@@ -39,8 +39,14 @@ export const CallView: React.FC = () => {
 
       {/* Top connection details bar */}
       <div className="absolute top-4 left-4 z-30 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-discordex-border/40 flex items-center gap-2.5">
-        <Wifi className="w-4 h-4 text-discordex-success" />
-        <span className="text-xs text-discordex-text-primary font-bold">Chamada Conectada</span>
+        {callState.ringing ? (
+          <Volume2 className="w-4 h-4 text-discordex-warning animate-pulse" />
+        ) : (
+          <Wifi className="w-4 h-4 text-discordex-success" />
+        )}
+        <span className="text-xs text-discordex-text-primary font-bold">
+          {callState.ringing ? 'Chamando...' : 'Chamada Conectada'}
+        </span>
         <div className="w-[1px] h-3 bg-discordex-border" />
         <Users className="w-3.5 h-3.5 text-discordex-text-secondary" />
         <span className="text-[10px] text-discordex-text-secondary">{callState.participants.length}</span>
