@@ -45,8 +45,8 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <main className="min-h-screen bg-discordex-bg text-discordex-text-primary flex items-center justify-center p-6">
-      <section className="w-full max-w-sm bg-discordex-secondary border border-discordex-border rounded-2xl shadow-2xl overflow-hidden">
+    <main className="min-h-screen bg-discordex-bg text-discordex-text-primary flex p-6">
+      <section className="m-auto w-full max-w-sm bg-discordex-secondary border border-discordex-border rounded-2xl shadow-2xl overflow-hidden">
         <div className="p-6 border-b border-discordex-border">
           <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black tracking-wider mb-5">
             DX
