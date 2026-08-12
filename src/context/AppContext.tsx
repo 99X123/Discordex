@@ -25,6 +25,7 @@ import {
   updateRole as updateRoleRpc,
 } from '../services/roles';
 import { VoiceCallEngine, type CallParticipantInfo } from '../lib/webrtcCall';
+import { applyNoiseSuppression } from '../lib/noiseGate';
 import { playJoinSound, playLeaveSound, playPopSound, playRingTone, stopRingTone } from '../lib/sounds';
 import type { Database } from '../lib/database.types';
 
@@ -900,7 +901,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const audioConstraints: MediaTrackConstraints = {
       echoCancellation: localStorage.getItem('discordex:echo-cancellation') !== 'false',
-      noiseSuppression: false,
+      noiseSuppression: localStorage.getItem('discordex:noise-suppression') !== 'false',
       autoGainControl: true,
     };
     const inputDevice = localStorage.getItem('discordex:input-device');
@@ -925,6 +926,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       addToast('Nao foi possivel acessar o microfone. Verifique as permissoes do navegador.', 'error');
       return;
+    }
+
+    const noiseSuppressionEnabled = localStorage.getItem('discordex:noise-suppression') !== 'false';
+    if (noiseSuppressionEnabled) {
+      stream = applyNoiseSuppression(stream, true);
     }
 
     setCallState({
