@@ -208,7 +208,7 @@ export const FriendsView: React.FC = () => {
 
                     <Tooltip content="Iniciar Chamada de Voz" position="top">
                       <button 
-                        onClick={() => startCall('voice', friend.id, friend.displayName)}
+                        onClick={() => startCall('voice', friend.id, friend.displayName, false, friend.avatar)}
                         className="w-8 h-8 rounded-lg bg-discordex-surface hover:bg-discordex-hover text-discordex-text-secondary hover:text-discordex-text-primary flex items-center justify-center transition-colors border border-discordex-border"
                       >
                         <Phone className="w-4 h-4" />
@@ -217,7 +217,7 @@ export const FriendsView: React.FC = () => {
 
                     <Tooltip content="Iniciar Chamada de Vídeo" position="top">
                       <button 
-                        onClick={() => startCall('video', friend.id, friend.displayName)}
+                        onClick={() => startCall('video', friend.id, friend.displayName, false, friend.avatar)}
                         className="w-8 h-8 rounded-lg bg-discordex-surface hover:bg-discordex-hover text-discordex-text-secondary hover:text-discordex-text-primary flex items-center justify-center transition-colors border border-discordex-border"
                       >
                         <Video className="w-4 h-4" />

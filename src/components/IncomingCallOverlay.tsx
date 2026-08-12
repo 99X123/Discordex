@@ -13,7 +13,7 @@ export const IncomingCallOverlay: React.FC = () => {
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
       <div className="w-full max-w-sm bg-discordex-surface border border-discordex-border rounded-3xl p-8 flex flex-col items-center gap-5 shadow-2xl">
         <div className="relative shrink-0">
-          <div className={`absolute inset-0 rounded-full ${type === 'video' ? 'bg-primary/30' : 'bg-discordex-success/30'}`} />
+          <div className={`absolute inset-0 rounded-full ${type === 'video' ? 'bg-primary/30' : 'bg-discordex-success/30'} animate-ping`} />
           <img
             src={caller.avatar}
             alt={caller.displayName}
@@ -23,8 +23,10 @@ export const IncomingCallOverlay: React.FC = () => {
 
         <div className="text-center">
           <p className="text-lg font-bold text-discordex-text-primary">{caller.displayName}</p>
-          <p className="text-xs text-discordex-text-secondary mt-1">
-            {type === 'video' ? 'Chamada de vídeo recebida' : 'Chamada de voz recebida'}
+          <p className="text-xs text-discordex-text-secondary mt-1 animate-pulse">
+            {type === 'video'
+              ? 'Chamada de vídeo recebida...'
+              : 'Chamada de voz recebida...'}
           </p>
         </div>
 

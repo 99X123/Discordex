@@ -16,6 +16,7 @@ import { ContextMenuProvider } from './components/ContextMenu';
 import { AuthPage } from './components/AuthPage';
 import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { supabase } from './lib/supabase';
+import { unlockAudio } from './lib/sounds';
 import { Menu } from 'lucide-react';
 
 const DashboardContent: React.FC = () => {
@@ -137,6 +138,18 @@ function App() {
 
     return () => {
       listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
     };
   }, []);
 

@@ -82,7 +82,8 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
 
   const handleTriggerCall = (type: 'voice' | 'video') => {
     if (activeChatId) {
-      startCall(type, activeChatId, chatTitle);
+      const activeDm = dms.find(d => d.user.id === activeDmId);
+      startCall(type, activeChatId, chatTitle, false, activeDm?.user.avatar);
     }
   };
 

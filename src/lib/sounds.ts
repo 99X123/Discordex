@@ -42,3 +42,28 @@ export function playPopSound() {
   if (!c) return;
   tone(c, 760, 0, 0.07, 0.12, 'triangle');
 }
+
+let ringTimer: number | null = null;
+
+export function playRingTone() {
+  stopRingTone();
+  const c = getCtx();
+  if (!c) return;
+  const chime = () => {
+    tone(c, 600, 0, 0.3, 0.26);
+    tone(c, 470, 0.32, 0.36, 0.26);
+  };
+  chime();
+  ringTimer = window.setInterval(chime, 1600);
+}
+
+export function stopRingTone() {
+  if (ringTimer !== null) {
+    clearInterval(ringTimer);
+    ringTimer = null;
+  }
+}
+
+export function unlockAudio() {
+  getCtx();
+}

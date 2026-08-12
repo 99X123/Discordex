@@ -62,13 +62,31 @@ export const CallView: React.FC = () => {
 
       {/* Main Grid View */}
       <div className="flex-1 p-4 pt-16 flex items-center justify-center">
-        <div className={`grid gap-4 w-full h-full ${
-          isFullscreen ? 'max-w-[1400px] max-h-full' : 'max-w-4xl max-h-[280px]'
-        } ${
-          callState.participants.length <= 1 ? 'grid-cols-1' :
-          callState.participants.length <= 2 ? 'grid-cols-2' :
-          'grid-cols-3 sm:grid-cols-4'
-        }`}>
+        {callState.ringing ? (
+          <div className="flex flex-col items-center gap-5 py-4 animate-fade-in">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-primary/25 animate-ping" />
+              <img
+                src={callState.targetAvatar}
+                alt={callState.channelName || ''}
+                className="relative w-24 h-24 rounded-full object-cover border-2 border-primary/60 shadow-[0_0_24px_rgba(229,57,53,0.4)]"
+              />
+            </div>
+            <div className="text-center">
+              <p className="text-base font-bold text-discordex-text-primary">{callState.channelName}</p>
+              <p className="text-xs text-discordex-text-secondary mt-1 animate-pulse">
+                {callState.type === 'video' ? 'Chamada de vídeo...' : 'Chamada de voz...'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className={`grid gap-4 w-full h-full ${
+            isFullscreen ? 'max-w-[1400px] max-h-full' : 'max-w-4xl max-h-[280px]'
+          } ${
+            callState.participants.length <= 1 ? 'grid-cols-1' :
+            callState.participants.length <= 2 ? 'grid-cols-2' :
+            'grid-cols-3 sm:grid-cols-4'
+          }`}>
 
           {callState.participants.map(p => {
             const isMe = p.id === currentUser.id;
@@ -136,7 +154,8 @@ export const CallView: React.FC = () => {
             );
           })}
 
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Call controls overlays bar */}

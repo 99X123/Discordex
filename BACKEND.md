@@ -11,13 +11,17 @@ Backend real baseado em Supabase: PostgreSQL, Auth, RLS, Realtime, RPCs protegid
 supabase db push
 ```
 
-3. Ative Realtime para as tabelas publicadas em `migrations/007_indexes_realtime.sql`.
+3. Ative Realtime para as tabelas publicadas em `migrations/007_indexes_realtime.sql` (e as novas `dm_call_signals`/`dm_call_rings` das migrations 014/015).
 4. Publique a Edge Function de ICE:
 
 ```bash
 supabase functions deploy webrtc-ice-config
 supabase secrets set STUN_URLS="stun:stun.l.google.com:19302"
 ```
+
+> **404 no console?** O erro `functions/v1/webrtc-ice-config: 404` significa que a Edge Function
+> ainda nao foi publicada neste projeto. Rode o comando acima. Enquanto isso o app continua
+> funcionando usando servidores STUN publicos (fallback embutido), fica sem TURN apenas.
 
 Para producao, configure TURN:
 

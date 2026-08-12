@@ -7,7 +7,7 @@ import { getMyProfile, updateProfile } from '../services/profiles';
 import { getServerMembersWithRoles, type ServerMemberWithProfile } from '../services/members';
 import { VoiceCallEngine, type CallParticipantInfo } from '../lib/webrtcCall';
 import { applyNoiseSuppression } from '../lib/noiseGate';
-import { playJoinSound, playLeaveSound, playPopSound } from '../lib/sounds';
+import { playJoinSound, playLeaveSound, playPopSound, playRingTone, stopRingTone } from '../lib/sounds';
 import type { Database } from '../lib/database.types';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -86,6 +86,7 @@ export interface CallState {
   type: 'voice' | 'video';
   channelId: string | null;
   channelName: string | null;
+  targetAvatar?: string;
   isMuted: boolean;
   isCameraOn: boolean;
   isScreenSharing: boolean;
@@ -143,7 +144,7 @@ interface AppContextType {
   deleteChannel: (serverId: string, channelId: string) => void;
   sendMessage: (content: string, replyTo?: { userName: string; content: string }) => void;
   toggleReaction: (messageId: string, emoji: string) => void;
-  startCall: (type: 'voice' | 'video', channelId: string, channelName: string, silent?: boolean) => void;
+  startCall: (type: 'voice' | 'video', channelId: string, channelName: string, silent?: boolean, targetAvatar?: string) => void;
   endCall: () => void;
   answerCall: () => void;
   declineCall: () => void;
@@ -193,6 +194,7 @@ const emptyCallState: CallState = {
   type: 'voice',
   channelId: null,
   channelName: null,
+  targetAvatar: undefined,
   isMuted: false,
   isCameraOn: false,
   isScreenSharing: false,
@@ -247,6 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const callerRingIdRef = useRef<string | null>(null);
   const ringTimeoutRef = useRef<number | null>(null);
   const remoteLeaveTimerRef = useRef<number | null>(null);
+  const ringDismissTimerRef = useRef<number | null>(null);
 
   const activeServer = useMemo(() => serverRows.find((server) => server.id === activeServerId), [serverRows, activeServerId]);
 
@@ -417,6 +420,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     callStateRef.current = callState;
     callActiveRef.current = callState.isActive;
   }, [callState]);
+
+  useEffect(() => {
+    if (incomingCall) {
+      playRingTone();
+      if (ringDismissTimerRef.current) clearTimeout(ringDismissTimerRef.current);
+      ringDismissTimerRef.current = window.setTimeout(() => {
+        ringDismissTimerRef.current = null;
+        stopRingTone();
+        setIncomingCall(null);
+      }, 60000);
+    } else {
+      stopRingTone();
+      if (ringDismissTimerRef.current) { clearTimeout(ringDismissTimerRef.current); ringDismissTimerRef.current = null; }
+    }
+    return () => {
+      if (ringDismissTimerRef.current) { clearTimeout(ringDismissTimerRef.current); ringDismissTimerRef.current = null; }
+    };
+  }, [incomingCall]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -688,7 +709,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await loadChannelMessages(activeChannelId);
   };
 
-  const startCall = async (type: 'voice' | 'video', channelId: string, channelName: string, silent = false) => {
+  const startCall = async (type: 'voice' | 'video', channelId: string, channelName: string, silent = false, targetAvatar?: string) => {
     if (!currentUser || callState.isActive) return;
     const startMuted = localStorage.getItem('discordex:start-muted') === 'true';
     const startCamera = type === 'video' && localStorage.getItem('discordex:start-camera') !== 'false';
@@ -736,6 +757,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type,
       channelId,
       channelName,
+      targetAvatar,
       isMuted: startMuted,
       isCameraOn: startCamera,
       isScreenSharing: false,
@@ -774,15 +796,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
       callerRingIdRef.current = ring.id;
+      playRingTone();
 
       callerRingChannelRef.current = supabase.channel(`dm-call-ring:${callerRingIdRef.current}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dm_call_rings', filter: `id=eq.${callerRingIdRef.current}` }, async (payload) => {
           const row = payload.new as RingRow | null;
           if (!row) return;
           if (row.status === 'declined') {
+            stopRingTone();
             addToast('Chamada recusada.', 'info');
             await endCall();
           } else if (row.status === 'accepted') {
+            stopRingTone();
             setCallState((prev) => ({ ...prev, ringing: false }));
             if (ringTimeoutRef.current) { clearTimeout(ringTimeoutRef.current); ringTimeoutRef.current = null; }
             if (callerRingChannelRef.current) {
@@ -795,12 +820,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       ringTimeoutRef.current = window.setTimeout(() => {
         if (!callStateRef.current.isActive) return;
+        stopRingTone();
         addToast('Chamada sem resposta.', 'info');
         void endCall();
       }, 60000);
     }
 
-    let iceServers: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302'] }];
+    let iceServers: RTCIceServer[] = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      { urls: 'stun:global.stun.twilio.com:3478' },
+    ];
     try {
       const response = await fetch(`${supabaseUrl}/functions/v1/webrtc-ice-config`, {
         method: 'GET',
@@ -884,6 +917,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const endCall = async () => {
     const current = callStateRef.current;
+    stopRingTone();
     if (ringTimeoutRef.current) { clearTimeout(ringTimeoutRef.current); ringTimeoutRef.current = null; }
     if (remoteLeaveTimerRef.current) { clearTimeout(remoteLeaveTimerRef.current); remoteLeaveTimerRef.current = null; }
     if (callerRingIdRef.current) {
@@ -924,7 +958,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await supabase.from('dm_call_rings').update({ status: 'accepted' }).eq('id', id);
     } catch { /* ignore */ }
-    startCall(type, caller.id, caller.displayName, true);
+    startCall(type, caller.id, caller.displayName, true, caller.avatar);
   };
 
   const declineCall = async () => {

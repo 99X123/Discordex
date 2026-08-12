@@ -282,7 +282,7 @@ export const Modals: React.FC = () => {
                     </button>
                     <button 
                       onClick={() => {
-                        startCall('voice', selectedProfileUser.id, selectedProfileUser.displayName);
+                        startCall('voice', selectedProfileUser.id, selectedProfileUser.displayName, false, selectedProfileUser.avatar);
                         closeModal();
                       }}
                       className="px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-medium flex items-center gap-2 transition-colors"
