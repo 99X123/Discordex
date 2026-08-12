@@ -27,6 +27,7 @@ export async function register(
     password,
     options: {
       data: { display_name: displayName },
+      emailRedirectTo: window.location.origin,
     },
   });
 
