@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { AppProvider, useApp } from './context/AppContext';
 import { SidebarServers } from './components/SidebarServers';
@@ -18,8 +18,31 @@ import { supabase } from './lib/supabase';
 import { Menu } from 'lucide-react';
 
 const DashboardContent: React.FC = () => {
-  const { activeServerId, activeDmId, callState } = useApp();
+  const { activeServerId, activeDmId, callState, joinServer } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const inviteProcessed = useRef(false);
+
+  useEffect(() => {
+    if (inviteProcessed.current) return;
+    inviteProcessed.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const inviteParam = params.get('invite');
+    const storedInvite = localStorage.getItem('discordex:pending-invite');
+
+    const code = inviteParam || storedInvite;
+    if (code) {
+      if (inviteParam) {
+        localStorage.setItem('discordex:pending-invite', code);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      window.setTimeout(() => {
+        localStorage.removeItem('discordex:pending-invite');
+        void joinServer(code);
+      }, 600);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex h-full w-full overflow-hidden relative">

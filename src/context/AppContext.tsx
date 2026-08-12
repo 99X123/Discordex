@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { createChannel as createChannelRecord } from '../services/channels';
-import { createServer, deleteServer as deleteServerRecord, getMyServers, joinServerViaInvite, leaveServer, updateServer as updateServerRecord } from '../services/servers';
+import { createServer, deleteServer as deleteServerRecord, extractInviteCode, getMyServers, joinServerViaInvite, leaveServer, updateServer as updateServerRecord } from '../services/servers';
 import { getMyProfile, updateProfile } from '../services/profiles';
 import { getServerMembersWithRoles, type ServerMemberWithProfile } from '../services/members';
 import { VoiceCallEngine, type CallParticipantInfo } from '../lib/webrtcCall';
@@ -155,7 +155,7 @@ interface AppContextType {
   closeModal: () => void;
   addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
-  updateCurrentUserProfile: (displayName: string, bio: string, status: User['status'], avatarUrl?: string) => void;
+  updateCurrentUserProfile: (displayName: string, bio: string, status: User['status'], avatarUrl?: string, username?: string) => void;
   triggerConnectionChange: (state: AppContextType['connectionState']) => void;
   sendFriendRequest: (username: string) => void;
   respondFriendRequest: (friendshipId: string, status: 'accepted' | 'declined') => void;
@@ -514,7 +514,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const joinServer = async (inviteCode: string) => {
-    const code = inviteCode.trim().split('/').filter(Boolean).pop() || inviteCode.trim();
+    const code = extractInviteCode(inviteCode);
+    if (!code) {
+      addToast('Convite invalido.', 'error');
+      return;
+    }
     const result = await joinServerViaInvite(code);
     if (!result.success || !result.serverId) {
       addToast(result.error || 'Convite invalido.', 'error');
@@ -896,9 +900,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedProfileUser(null);
   };
 
-  const updateCurrentUserProfile = async (displayName: string, bio: string, status: User['status'], avatarUrl?: string) => {
+  const updateCurrentUserProfile = async (displayName: string, bio: string, status: User['status'], avatarUrl?: string, username?: string) => {
     const cleanAvatarUrl = avatarUrl?.trim() || undefined;
-    const result = await updateProfile({ display_name: displayName, bio, status, avatar_url: cleanAvatarUrl });
+    const cleanUsername = username?.trim() || undefined;
+    const result = await updateProfile({
+      display_name: displayName,
+      bio,
+      status,
+      avatar_url: cleanAvatarUrl,
+      ...(cleanUsername ? { username: cleanUsername } : {}),
+    });
     if (!result.success || !result.data) {
       addToast(result.error || 'Nao foi possivel atualizar o perfil.', 'error');
       return;

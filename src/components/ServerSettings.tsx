@@ -2,9 +2,34 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Server } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
-import { Camera, Hash, Volume2, Trash2, Pencil, Check, X, X as CloseIcon, Shield, ChevronLeft } from 'lucide-react';
+import { createServerInvite, getServerInvites } from '../services/servers';
+import type { Database } from '../lib/database.types';
+import { Camera, Hash, Volume2, Trash2, Pencil, Check, X, X as CloseIcon, Shield, ChevronLeft, Link2, Copy, Plus } from 'lucide-react';
 
-type Tab = 'overview' | 'channels' | 'members';
+type Tab = 'overview' | 'channels' | 'members' | 'invites';
+
+type Invite = Database['public']['Tables']['invites']['Row'];
+
+const copyToClipboard = async (text: string): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      document.body.removeChild(area);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
 
 const statusColor = (status: string) =>
   status === 'online' ? 'bg-discordex-success' :
@@ -21,6 +46,11 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
   const [iconUploading, setIconUploading] = useState(false);
   const [editingChannel, setEditingChannel] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [invitesError, setInvitesError] = useState<string | null>(null);
+  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   const isOwner = currentUser?.id === server.ownerId;
 
@@ -83,6 +113,39 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
     setEditingName('');
   };
 
+  useEffect(() => {
+    if (tab !== 'invites') return;
+    setInvitesLoading(true);
+    setInvitesError(null);
+    getServerInvites(server.id).then((data) => {
+      setInvites(data);
+      setInvitesLoading(false);
+    });
+  }, [tab, server.id]);
+
+  const handleCreateInvite = async () => {
+    setInvitesError(null);
+    const result = await createServerInvite(server.id);
+    if (!result.success || !result.code) {
+      setInvitesError(result.error || 'Nao foi possivel criar o convite.');
+      return;
+    }
+    const inviteUrl = result.inviteUrl || `${window.location.origin}?invite=${result.code}`;
+    setLastInviteUrl(inviteUrl);
+    await copyToClipboard(inviteUrl);
+    addToast('Convite criado e link copiado!', 'success');
+    const data = await getServerInvites(server.id);
+    setInvites(data);
+  };
+
+  const handleCopyInvite = async (invite: Invite) => {
+    const url = `${window.location.origin}?invite=${invite.code}`;
+    const ok = await copyToClipboard(url);
+    setCopiedInviteId(ok ? invite.id : null);
+    addToast(ok ? 'Link do convite copiado.' : 'Nao foi possivel copiar.', ok ? 'success' : 'error');
+    window.setTimeout(() => setCopiedInviteId(null), 2000);
+  };
+
   const categories = ['INFORMAÇÕES', 'CONVERSA', 'VOZ'] as const;
   const channelsByCategory = (category: typeof categories[number]) =>
     server.channels.filter((channel) => channel.category === category);
@@ -128,6 +191,12 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
               className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'members' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
             >
               Membros
+            </button>
+            <button
+              onClick={() => setTab('invites')}
+              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'invites' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+            >
+              Convites
             </button>
           </div>
         </div>
@@ -330,6 +399,83 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
               })}
               {members.length === 0 && (
                 <p className="text-xs text-discordex-text-secondary/50 italic">Nenhum membro encontrado.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'invites' && (
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-discordex-text-primary">Convites</h2>
+              <p className="text-xs text-discordex-text-secondary mt-1">
+                Crie um link de convite para convidar pessoas para este servidor.
+              </p>
+            </div>
+
+            <button
+              onClick={handleCreateInvite}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Criar convite e copiar link
+            </button>
+
+            {invitesError && (
+              <div className="text-xs rounded-xl border border-discordex-danger/30 bg-discordex-danger/10 text-discordex-danger px-3 py-2">
+                {invitesError}
+              </div>
+            )}
+
+            {lastInviteUrl && (
+              <div className="flex items-center gap-2.5 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl">
+                <Link2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
+                <span className="flex-1 text-xs text-discordex-text-primary font-mono truncate">{lastInviteUrl}</span>
+                <button
+                  onClick={async () => { const ok = await copyToClipboard(lastInviteUrl); addToast(ok ? 'Link copiado.' : 'Falha ao copiar.', ok ? 'success' : 'error'); }}
+                  className="p-1.5 text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+                  title="Copiar link"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                Convites ativos ({invites.length})
+              </h3>
+
+              {invitesLoading ? (
+                <p className="text-xs text-discordex-text-secondary/50 italic">Carregando...</p>
+              ) : invites.length === 0 ? (
+                <p className="text-xs text-discordex-text-secondary/50 italic">Nenhum convite criado ainda.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {invites.map((invite) => (
+                    <div key={invite.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl">
+                      <Link2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-xs font-mono text-discordex-text-primary truncate">
+                          {window.location.origin}?invite={invite.code}
+                        </span>
+                        <span className="block text-[10px] text-discordex-text-secondary">
+                          {invite.uses} uso(s)
+                          {invite.max_uses ? ` / ${invite.max_uses}` : ''} • {new Date(invite.created_at).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleCopyInvite(invite)}
+                        className="p-2 text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+                        title="Copiar link"
+                      >
+                        {copiedInviteId === invite.id
+                          ? <Check className="w-4 h-4 text-discordex-success" />
+                          : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

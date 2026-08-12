@@ -20,6 +20,7 @@ export const SettingsPanel: React.FC = () => {
   } = useApp();
 
   const [displayName, setDisplayName] = useState(currentUser.displayName);
+  const [username, setUsername] = useState(currentUser.username);
   const [bio, setBio] = useState(currentUser.bio || '');
   const [status, setStatus] = useState(currentUser.status);
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
@@ -41,6 +42,7 @@ export const SettingsPanel: React.FC = () => {
 
   useEffect(() => {
     setDisplayName(currentUser.displayName);
+    setUsername(currentUser.username);
     setBio(currentUser.bio || '');
     setStatus(currentUser.status);
     setAvatarUrl(currentUser.avatar);
@@ -77,7 +79,7 @@ export const SettingsPanel: React.FC = () => {
 
   const handleSaveProfile = (event: React.FormEvent) => {
     event.preventDefault();
-    updateCurrentUserProfile(displayName, bio, status, avatarUrl);
+    updateCurrentUserProfile(displayName, bio, status, avatarUrl, username);
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,7 +115,7 @@ export const SettingsPanel: React.FC = () => {
 
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
     setAvatarUrl(data.publicUrl);
-    updateCurrentUserProfile(displayName, bio, status, data.publicUrl);
+    updateCurrentUserProfile(displayName, bio, status, data.publicUrl, username);
   };
 
   const handleSaveVoice = (event: React.FormEvent) => {
@@ -257,6 +259,25 @@ export const SettingsPanel: React.FC = () => {
               ))}
             </div>
           </div>
+
+          <label className="block space-y-2">
+            <span className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider">
+              Nome de usuario <span className="text-primary">(unico)</span>
+            </span>
+            <input
+              type="text"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              pattern="[a-zA-Z0-9_]+"
+              minLength={2}
+              maxLength={32}
+              title="Apenas letras, numeros e _"
+              className="w-full px-4 py-3 bg-discordex-secondary border border-discordex-border rounded-xl text-xs text-discordex-text-primary focus:outline-none focus:border-primary transition-colors"
+            />
+            <span className="block text-[9px] text-discordex-text-secondary">
+              Usado para adicionar amigos e ser encontrado (ex: joao_dev).
+            </span>
+          </label>
 
           <label className="block space-y-2">
             <span className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider">

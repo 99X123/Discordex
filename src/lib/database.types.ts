@@ -392,6 +392,10 @@ export interface Database {
         Args: { p_name: string; p_description?: string | null };
         Returns: string;
       };
+      create_server_invite: {
+        Args: { p_server_id: string; p_max_uses?: number | null };
+        Returns: Json;
+      };
       join_server_with_invite: {
         Args: { p_code: string };
         Returns: Json;

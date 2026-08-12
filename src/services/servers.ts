@@ -118,6 +118,70 @@ export async function joinServerViaInvite(
   return { success: true, serverId: result.server_id };
 }
 
+/** Extrai o codigo do convite de uma URL ou string (aceita links completos) */
+export function extractInviteCode(input: string): string {
+  const trimmed = input.trim();
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.searchParams.get('invite')?.trim() || decodedHashInvite(parsed) || '';
+  } catch {
+    if (trimmed.includes('invite=')) {
+      return trimmed.split('invite=')[1]?.split(/[&?#]/)[0]?.trim() || '';
+    }
+    if (trimmed.includes('/')) {
+      return trimmed.split('/').filter(Boolean).pop() || '';
+    }
+    return trimmed;
+  }
+}
+
+function decodedHashInvite(parsed: URL): string {
+  const hash = parsed.hash;
+  if (!hash.includes('invite=')) return '';
+  const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+  return params.get('invite')?.trim() || '';
+}
+
+/** Monta o link compartilhavel de convite */
+export function buildInviteUrl(code: string): string {
+  return `${window.location.origin}?invite=${code}`;
+}
+
+/** Cria um convite para o servidor (qualquer membro) */
+export async function createServerInvite(
+  serverId: string
+): Promise<{ success: boolean; code?: string; inviteUrl?: string; error?: string }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Não autenticado.' };
+
+  const { data, error } = await supabase.rpc('create_server_invite', {
+    p_server_id: serverId,
+  });
+
+  if (error) return { success: false, error: error.message };
+
+  const result = data as { success: boolean; code?: string; error?: string; message?: string };
+  if (!result.success || !result.code) {
+    return { success: false, error: result.message ?? result.error };
+  }
+
+  return { success: true, code: result.code, inviteUrl: buildInviteUrl(result.code) };
+}
+
+/** Lista convites ativos de um servidor */
+export async function getServerInvites(
+  serverId: string
+): Promise<Database['public']['Tables']['invites']['Row'][]> {
+  const { data, error } = await supabase
+    .from('invites')
+    .select('*')
+    .eq('server_id', serverId)
+    .order('created_at', { ascending: false });
+
+  if (error) return [];
+  return data;
+}
+
 /** Retorna membros de um servidor com perfis */
 export async function getServerMembers(serverId: string) {
   const { data, error } = await supabase

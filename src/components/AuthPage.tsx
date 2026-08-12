@@ -6,6 +6,7 @@ export const AuthPage: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,7 +20,7 @@ export const AuthPage: React.FC = () => {
 
     const result = mode === 'login'
       ? await login(email, password)
-      : await register(email, password, displayName || email.split('@')[0]);
+      : await register(email, password, displayName || username, username);
 
     setLoading(false);
 
@@ -142,15 +143,37 @@ export const AuthPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
               {mode === 'register' && (
-                <label className="block space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-discordex-text-secondary">Nome</span>
-                  <input
-                    value={displayName}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-sm outline-none focus:border-primary"
-                    placeholder="Seu nome"
-                  />
-                </label>
+                <>
+                  <label className="block space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-discordex-text-secondary">
+                      Nome de usuario <span className="text-primary">(unico)</span>
+                    </span>
+                    <input
+                      value={username}
+                      onChange={(event) => setUsername(event.target.value)}
+                      className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-sm outline-none focus:border-primary"
+                      placeholder="joao_dev"
+                      minLength={2}
+                      maxLength={32}
+                      pattern="[a-zA-Z0-9_]+"
+                      title="Apenas letras, numeros e _"
+                      required
+                    />
+                    <span className="block text-[9px] text-discordex-text-secondary">
+                      Seu identificador unico para adicionar amigos e ser encontrado (ex: joao_dev).
+                    </span>
+                  </label>
+
+                  <label className="block space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-discordex-text-secondary">Nome (apelido)</span>
+                    <input
+                      value={displayName}
+                      onChange={(event) => setDisplayName(event.target.value)}
+                      className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-sm outline-none focus:border-primary"
+                      placeholder={username || 'Seu nome de exibicao'}
+                    />
+                  </label>
+                </>
               )}
 
               <label className="block space-y-2">

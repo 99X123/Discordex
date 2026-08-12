@@ -16,17 +16,67 @@ export interface AuthSuccess {
   user: User;
 }
 
-/** Registra novo usuário com email/senha */
+/** Normaliza um username: minusculas, sem @, espacos viram _, remove acentos/simbolos */
+export function normalizeUsername(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/^@/, '')
+    .replace(/\s+/g, '_')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9_]/g, '');
+}
+
+/** Valida formato do username (2-32, letras/numeros/_ ) */
+export function isValidUsername(raw: string): boolean {
+  const clean = normalizeUsername(raw);
+  return clean.length >= 2 && clean.length <= 32;
+}
+
+/** Verifica se um username esta disponivel */
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  const clean = normalizeUsername(username);
+  if (!isValidUsername(clean)) return false;
+  const { data } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', clean)
+    .maybeSingle();
+  return !data;
+}
+
+/** Registra novo usuário com email/senha e username unico */
 export async function register(
   email: string,
   password: string,
-  displayName: string
+  displayName: string,
+  username?: string
 ): Promise<AuthSuccess | AuthError> {
+  const cleanUsername = normalizeUsername(username || email.split('@')[0]);
+
+  if (!isValidUsername(cleanUsername)) {
+    return {
+      success: false,
+      error: 'INVALID_USERNAME',
+      message: 'O nome de usuario deve ter entre 2 e 32 caracteres (letras, numeros e _).',
+    };
+  }
+
+  const available = await isUsernameAvailable(cleanUsername);
+  if (!available) {
+    return {
+      success: false,
+      error: 'USERNAME_TAKEN',
+      message: 'Este nome de usuario ja esta em uso. Escolha outro.',
+    };
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { display_name: displayName },
+      data: { display_name: displayName, username: cleanUsername },
       emailRedirectTo: window.location.origin,
     },
   });
