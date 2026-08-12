@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Channel } from '../context/AppContext';
 import { Tooltip } from './SharedUI';
+import { PERMISSIONS, hasPermission } from '../lib/permissions';
 import { 
   Hash, Volume2, Settings, Mic, MicOff, Video, VideoOff, 
-  PhoneOff, UserPlus, ChevronDown, Plus, LogOut, Users
+  PhoneOff, UserPlus, ChevronDown, Plus, LogOut, Users, FolderPlus
 } from 'lucide-react';
 
 export const SidebarChannels: React.FC = () => {
@@ -21,22 +22,105 @@ export const SidebarChannels: React.FC = () => {
     toggleMute,
     toggleCamera,
     deleteServer,
-    voiceCounts
+    voiceCounts,
+    getMyPermissions,
   } = useApp();
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const activeServer = servers.find(s => s.id === activeServerId);
 
   if (!activeServerId || !activeServer) return null;
 
-  const categories = ['INFORMAÇÕES', 'CONVERSA', 'VOZ'] as const;
+  const myPerms = getMyPermissions(activeServerId);
+  const canManageChannels = myPerms.isOwner || hasPermission(myPerms.permissions, PERMISSIONS.MANAGE_CHANNELS);
 
-  const getChannelsByCategory = (category: typeof categories[number]) => {
-    return activeServer.channels.filter(c => c.category === category);
+  const channelsByParent = (parentId: string | null) =>
+    activeServer.channels.filter(c => (c.parentId || null) === parentId);
+
+  const toggleCategory = (categoryId: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) next.delete(categoryId);
+      else next.add(categoryId);
+      return next;
+    });
   };
 
   const handleChannelClick = (channel: Channel) => {
     setActiveChannelId(channel.id);
   };
+
+  const renderChannel = (chan: Channel) => {
+    const isActive = activeChannelId === chan.id;
+    const isVoice = chan.type === 'voice';
+
+    return (
+      <div
+        key={chan.id}
+        onClick={() => handleChannelClick(chan)}
+        className={`flex items-center justify-between px-2 py-1.5 rounded-lg group cursor-pointer transition-colors ${
+          isActive 
+            ? 'bg-discordex-hover text-discordex-text-primary' 
+            : 'text-discordex-text-secondary hover:bg-discordex-hover/50 hover:text-discordex-text-primary'
+        }`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          {isVoice ? (
+            <Volume2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
+          ) : (
+            <Hash className="w-4 h-4 text-discordex-text-secondary shrink-0" />
+          )}
+          <span className="text-xs font-semibold truncate">{chan.name}</span>
+          {isVoice && (voiceCounts[chan.id] || 0) > 0 && (
+            <span className="flex items-center gap-1 text-[9px] font-bold text-discordex-success shrink-0">
+              <Users className="w-3 h-3" />
+              {voiceCounts[chan.id]}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCategoryGroup = (category: { id: string; name: string }, isCollapsed: boolean) => {
+    const catChannels = channelsByParent(category.id);
+    return (
+      <div key={category.id} className="space-y-0.5">
+        <div className="flex items-center justify-between px-2 text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider group/cat">
+          <button
+            onClick={() => toggleCategory(category.id)}
+            className="flex items-center gap-1 hover:text-discordex-text-primary transition-colors"
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+            {category.name}
+          </button>
+          {canManageChannels && (
+            <button 
+              onClick={() => openModal('create-channel')}
+              className="hover:text-discordex-text-primary transition-colors"
+              title="Criar canal"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {!isCollapsed && (
+          <div className="space-y-0.5">
+            {catChannels.map(renderChannel)}
+            {catChannels.length === 0 && (
+              <span className="block px-2 text-[10px] text-discordex-text-secondary/40 italic">
+                Nenhum canal
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const uncategorized = channelsByParent(null);
 
   return (
     <div className="w-60 bg-discordex-secondary flex flex-col justify-between shrink-0 h-full border-r border-discordex-border/40 select-none">
@@ -77,63 +161,37 @@ export const SidebarChannels: React.FC = () => {
 
       {/* Channel lists */}
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
-        {categories.map(category => {
-          const catChannels = getChannelsByCategory(category);
-          
-          return (
-            <div key={category} className="space-y-1">
-              <div className="flex items-center justify-between px-2 text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider">
-                <span>{category}</span>
+        {canManageChannels && (
+          <button
+            onClick={() => openModal('create-category')}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider hover:text-discordex-text-primary hover:bg-discordex-hover/50 transition-colors"
+          >
+            <FolderPlus className="w-3.5 h-3.5" />
+            Criar categoria
+          </button>
+        )}
+
+        {activeServer.categories.map(category => renderCategoryGroup(category, collapsed.has(category.id)))}
+
+        {uncategorized.length > 0 && (
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between px-2 text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider group/cat">
+              <span>Sem categoria</span>
+              {canManageChannels && (
                 <button 
                   onClick={() => openModal('create-channel')}
                   className="hover:text-discordex-text-primary transition-colors"
+                  title="Criar canal"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
-              </div>
-
-              <div className="space-y-0.5">
-                {catChannels.map(chan => {
-                  const isActive = activeChannelId === chan.id;
-                  const isVoice = chan.type === 'voice';
-
-                  return (
-                    <div
-                      key={chan.id}
-                      onClick={() => handleChannelClick(chan)}
-                      className={`flex items-center justify-between px-2 py-1.5 rounded-lg group cursor-pointer transition-colors ${
-                        isActive 
-                          ? 'bg-discordex-hover text-discordex-text-primary' 
-                          : 'text-discordex-text-secondary hover:bg-discordex-hover/50 hover:text-discordex-text-primary'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        {isVoice ? (
-                          <Volume2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
-                        ) : (
-                          <Hash className="w-4 h-4 text-discordex-text-secondary shrink-0" />
-                        )}
-                        <span className="text-xs font-semibold truncate">{chan.name}</span>
-                        {isVoice && (voiceCounts[chan.id] || 0) > 0 && (
-                          <span className="flex items-center gap-1 text-[9px] font-bold text-discordex-success shrink-0">
-                            <Users className="w-3 h-3" />
-                            {voiceCounts[chan.id]}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {catChannels.length === 0 && (
-                  <span className="block px-2 text-[10px] text-discordex-text-secondary/40 italic">
-                    Nenhum canal
-                  </span>
-                )}
-              </div>
+              )}
             </div>
-          );
-        })}
+            <div className="space-y-0.5">
+              {uncategorized.map(renderChannel)}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Voice Status Overlay panel */}

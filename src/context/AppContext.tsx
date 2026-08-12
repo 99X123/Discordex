@@ -71,11 +71,17 @@ export interface Message {
   };
 }
 
+export interface ChannelCategory {
+  id: string;
+  name: string;
+  position: number;
+}
+
 export interface Channel {
   id: string;
   name: string;
   type: 'text' | 'voice';
-  category: 'INFORMAÇÕES' | 'CONVERSA' | 'VOZ';
+  parentId: string | null;
   description?: string;
 }
 
@@ -89,6 +95,7 @@ export interface Server {
   unreadCount?: number;
   hasNotification?: boolean;
   channels: Channel[];
+  categories: ChannelCategory[];
 }
 
 export interface ServerMember {
@@ -171,7 +178,7 @@ interface AppContextType {
   isSettingsOpen: boolean;
   settingsTab: string;
   activeServerSettingsId: string | null;
-  activeModal: 'create-server' | 'join-server' | 'create-channel' | 'create-role' | 'ban-user' | 'kick-user' | 'profile-view' | null;
+  activeModal: 'create-server' | 'join-server' | 'create-channel' | 'create-category' | 'create-role' | 'ban-user' | 'kick-user' | 'profile-view' | null;
   selectedProfileUser: User | null;
   incomingCall: { id: string; caller: User; type: 'voice' | 'video' } | null;
   toasts: { id: string; message: string; type: 'success' | 'error' | 'info' }[];
@@ -202,7 +209,8 @@ interface AppContextType {
   deleteServer: (serverId: string) => void;
   refreshServers: () => Promise<void>;
   updateServerConfig: (serverId: string, updates: { name?: string; description?: string; icon_url?: string }) => Promise<void>;
-  addChannel: (serverId: string, name: string, type: 'text' | 'voice', category: Channel['category']) => void;
+  addChannel: (serverId: string, name: string, type: 'text' | 'voice', parentId?: string | null) => void;
+  addCategory: (serverId: string, name: string) => void;
   deleteChannel: (serverId: string, channelId: string) => void;
   sendMessage: (content: string, replyTo?: { userName: string; content: string }) => void;
   toggleReaction: (messageId: string, emoji: string) => void;
@@ -338,24 +346,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .eq('server_id', server.id)
         .order('position');
 
-      const categories = new Map<string, string>();
+      const categories = new Map<string, { id: string; name: string; position: number }>();
       (channelRows || []).forEach((channel) => {
-        if (channel.type === 'category') categories.set(channel.id, channel.name);
+        if (channel.type === 'category') categories.set(channel.id, { id: channel.id, name: channel.name, position: channel.position });
       });
 
       const channels = (channelRows || [])
         .filter((channel): channel is ChannelRow & { type: 'text' | 'voice' } => channel.type === 'text' || channel.type === 'voice')
-        .map((channel) => {
-          const parentName = channel.parent_id ? categories.get(channel.parent_id) : undefined;
-          const category: Channel['category'] = channel.type === 'voice' ? 'VOZ' : parentName === 'INFORMACOES' || parentName === 'INFORMAÇÕES' ? 'INFORMAÇÕES' : 'CONVERSA';
-          return {
-            id: channel.id,
-            name: channel.name,
-            type: channel.type,
-            category,
-            description: channel.description || undefined,
-          };
-        });
+        .map((channel) => ({
+          id: channel.id,
+          name: channel.name,
+          type: channel.type,
+          parentId: channel.parent_id,
+          description: channel.description || undefined,
+        }));
+
+      const catList: ChannelCategory[] = (channelRows || [])
+        .filter((channel): channel is ChannelRow & { type: 'category' } => channel.type === 'category')
+        .map((channel) => ({ id: channel.id, name: channel.name, position: channel.position }))
+        .sort((a, b) => a.position - b.position);
 
       return {
         id: server.id,
@@ -365,6 +374,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         description: server.description || undefined,
         ownerId: server.owner_id,
         channels,
+        categories: catList,
       };
     }));
 
@@ -791,8 +801,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addToast(row?.owner_id === currentUser?.id ? 'Servidor excluido.' : 'Voce saiu do servidor.', 'info');
   };
 
-  const addChannel = async (serverId: string, name: string, type: 'text' | 'voice') => {
-    const result = await createChannelRecord(serverId, name, type);
+  const addChannel = async (serverId: string, name: string, type: 'text' | 'voice', parentId: string | null = null) => {
+    const result = await createChannelRecord(serverId, name, type, { parentId: parentId || undefined });
     if (!result.success || !result.channel) {
       addToast(result.error || 'Nao foi possivel criar o canal.', 'error');
       return;
@@ -800,6 +810,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await loadServers();
     setActiveChannelId(result.channel.id);
     addToast(`Canal ${name} criado.`, 'success');
+  };
+
+  const addCategory = async (serverId: string, name: string) => {
+    const result = await createChannelRecord(serverId, name, 'category');
+    if (!result.success) {
+      addToast(result.error || 'Nao foi possivel criar a categoria.', 'error');
+      return;
+    }
+    await loadServers();
+    addToast(`Categoria ${name} criada.`, 'success');
   };
 
   const deleteChannel = async (_serverId: string, channelId: string) => {
@@ -1194,9 +1214,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       else if (videoQuality === '1080p') { screenConstraints.width = { max: 1920 }; screenConstraints.height = { max: 1080 }; }
       const videoFps = Math.min(Math.max(Number(localStorage.getItem('discordex:video-fps') || 30), 1), 60);
       screenConstraints.frameRate = { ideal: videoFps, max: videoFps };
-      displayStream = await navigator.mediaDevices.getDisplayMedia({ video: screenConstraints, audio: false });
-    } catch {
-      addToast('Compartilhamento de tela cancelado.', 'info');
+      displayStream = await navigator.mediaDevices.getDisplayMedia({ video: screenConstraints });
+    } catch (error) {
+      const err = error as DOMException;
+      if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+        addToast('Compartilhamento de tela cancelado ou sem permissao.', 'info');
+      } else if (err.name === 'NotFoundError' || err.name === 'NotReadableError') {
+        addToast('Nao foi possivel acessar a tela selecionada. Verifique o navegador e tente novamente.', 'error');
+      } else {
+        addToast(`Falha ao compartilhar a tela: ${err.message || err.name || 'erro desconhecido'}.`, 'error');
+      }
       return;
     }
 
@@ -1370,6 +1397,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       refreshServers,
       updateServerConfig,
       addChannel,
+      addCategory,
       deleteChannel,
       sendMessage,
       toggleReaction,

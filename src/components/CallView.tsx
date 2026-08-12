@@ -53,7 +53,9 @@ export const CallView: React.FC = () => {
     if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => { /* ignore */ });
     } else if (containerRef.current) {
-      void containerRef.current.requestFullscreen().catch(() => { /* ignore */ });
+      void containerRef.current
+        .requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions)
+        .catch(() => { /* ignore */ });
     }
   };
 

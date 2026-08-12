@@ -40,7 +40,7 @@ const statusColor = (status: string) =>
   'bg-discordex-text-secondary';
 
 export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> = ({ server, onClose }) => {
-  const { updateServerConfig, deleteChannel, refreshServers, serverMembers, currentUser, addToast, getMyPermissions } = useApp();
+  const { updateServerConfig, deleteChannel, refreshServers, serverMembers, currentUser, addToast, getMyPermissions, addCategory } = useApp();
 
   const [tab, setTab] = useState<Tab>('overview');
   const [name, setName] = useState(server.name);
@@ -53,6 +53,7 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
   const [invitesError, setInvitesError] = useState<string | null>(null);
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   const isOwner = currentUser?.id === server.ownerId;
   const myPerms = getMyPermissions(server.id);
@@ -154,9 +155,54 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
     window.setTimeout(() => setCopiedInviteId(null), 2000);
   };
 
-  const categories = ['INFORMAÇÕES', 'CONVERSA', 'VOZ'] as const;
-  const channelsByCategory = (category: typeof categories[number]) =>
-    server.channels.filter((channel) => channel.category === category);
+  const channelsByCategory = (categoryId: string | null) =>
+    server.channels.filter((channel) => (channel.parentId || null) === categoryId);
+
+  const renderChannelRow = (channel: { id: string; name: string; type: 'text' | 'voice' }) => {
+    const isVoice = channel.type === 'voice';
+    return (
+      <div key={channel.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl group">
+        {isVoice
+          ? <Volume2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
+          : <Hash className="w-4 h-4 text-discordex-text-secondary shrink-0" />}
+        {editingChannel === channel.id ? (
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              autoFocus
+              value={editingName}
+              onChange={(event) => setEditingName(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') handleRenameChannel(channel.id); if (event.key === 'Escape') setEditingChannel(null); }}
+              className="flex-1 px-3 py-1.5 bg-discordex-bg border border-discordex-border rounded-lg text-xs text-discordex-text-primary focus:outline-none focus:border-primary"
+            />
+            <button onClick={() => handleRenameChannel(channel.id)} className="p-1.5 text-discordex-success hover:bg-discordex-success/10 rounded-lg transition-colors">
+              <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => setEditingChannel(null)} className="p-1.5 text-discordex-text-secondary hover:bg-discordex-surface rounded-lg transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <span className="flex-1 text-xs font-semibold text-discordex-text-primary truncate">{channel.name}</span>
+        )}
+        {isOwner && editingChannel !== channel.id && (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => { setEditingChannel(channel.id); setEditingName(channel.name); }}
+              className="p-1.5 text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => { if (window.confirm(`Remover o canal #${channel.name}?`)) deleteChannel(server.id, channel.id); }}
+              className="p-1.5 text-discordex-danger hover:bg-discordex-danger/10 rounded-lg transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-discordex-bg flex animate-fade-in">
@@ -314,63 +360,57 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
             <div>
               <h2 className="text-xl font-bold text-discordex-text-primary">Canais</h2>
               <p className="text-xs text-discordex-text-secondary mt-1">
-                Renomeie ou remova os canais do servidor.
+                Organize os canais em categorias, renomeie ou remova.
               </p>
             </div>
 
-            {categories.map((category) => {
-              const catChannels = channelsByCategory(category);
+            {isOwner && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (newCategoryName.trim()) {
+                    addCategory(server.id, newCategoryName.trim());
+                    setNewCategoryName('');
+                  }
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                  placeholder="Nome da nova categoria"
+                  className="flex-1 px-4 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl text-xs text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors"
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 px-4 py-2.5 bg-discordex-surface hover:bg-discordex-hover border border-discordex-border rounded-xl text-xs font-semibold text-discordex-text-primary transition-colors"
+                >
+                  Criar categoria
+                </button>
+              </form>
+            )}
+
+            {server.categories.map((category) => {
+              const catChannels = channelsByCategory(category.id);
               return (
-                <div key={category}>
-                  <h3 className="text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
-                    {category}
-                  </h3>
+                <div key={category.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider">
+                      {category.name}
+                    </h3>
+                    {isOwner && (
+                      <button
+                        onClick={() => { if (window.confirm(`Remover a categoria "${category.name}"? Os canais dela serao movidos para "Sem categoria".`)) deleteChannel(server.id, category.id); }}
+                        className="p-1 text-discordex-danger/70 hover:text-discordex-danger transition-colors"
+                        title="Excluir categoria"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-1.5">
-                    {catChannels.map((channel) => {
-                      const isVoice = channel.type === 'voice';
-                      return (
-                        <div key={channel.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl group">
-                          {isVoice
-                            ? <Volume2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
-                            : <Hash className="w-4 h-4 text-discordex-text-secondary shrink-0" />}
-                          {editingChannel === channel.id ? (
-                            <div className="flex-1 flex items-center gap-2">
-                              <input
-                                autoFocus
-                                value={editingName}
-                                onChange={(event) => setEditingName(event.target.value)}
-                                onKeyDown={(event) => { if (event.key === 'Enter') handleRenameChannel(channel.id); if (event.key === 'Escape') setEditingChannel(null); }}
-                                className="flex-1 px-3 py-1.5 bg-discordex-bg border border-discordex-border rounded-lg text-xs text-discordex-text-primary focus:outline-none focus:border-primary"
-                              />
-                              <button onClick={() => handleRenameChannel(channel.id)} className="p-1.5 text-discordex-success hover:bg-discordex-success/10 rounded-lg transition-colors">
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => setEditingChannel(null)} className="p-1.5 text-discordex-text-secondary hover:bg-discordex-surface rounded-lg transition-colors">
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="flex-1 text-xs font-semibold text-discordex-text-primary truncate">{channel.name}</span>
-                          )}
-                          {isOwner && editingChannel !== channel.id && (
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => { setEditingChannel(channel.id); setEditingName(channel.name); }}
-                                className="p-1.5 text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => { if (window.confirm(`Remover o canal #${channel.name}?`)) deleteChannel(server.id, channel.id); }}
-                                className="p-1.5 text-discordex-danger hover:bg-discordex-danger/10 rounded-lg transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {catChannels.map(renderChannelRow)}
                     {catChannels.length === 0 && (
                       <span className="block px-2 text-[10px] text-discordex-text-secondary/40 italic">Nenhum canal</span>
                     )}
@@ -378,6 +418,17 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
                 </div>
               );
             })}
+
+            {channelsByCategory(null).length > 0 && (
+              <div key="__uncategorized__">
+                <h3 className="text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                  Sem categoria
+                </h3>
+                <div className="space-y-1.5">
+                  {channelsByCategory(null).map(renderChannelRow)}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

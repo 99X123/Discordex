@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
+import type { Server } from '../context/AppContext';
 import { X, Shield, Calendar, MessageSquare, Phone } from 'lucide-react';
 
 export const Modals: React.FC = () => {
@@ -10,7 +11,9 @@ export const Modals: React.FC = () => {
     addServer, 
     joinServer, 
     addChannel, 
+    addCategory,
     activeServerId,
+    servers,
     startCall,
     setActiveDmId,
     setActiveServerId
@@ -20,7 +23,17 @@ export const Modals: React.FC = () => {
   const [inviteCode, setInviteCode] = useState('');
   const [channelName, setChannelName] = useState('');
   const [channelType, setChannelType] = useState<'text' | 'voice'>('text');
-  const [channelCategory, setChannelCategory] = useState<'INFORMAÇÕES' | 'CONVERSA' | 'VOZ'>('CONVERSA');
+  const [channelParentId, setChannelParentId] = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState('');
+
+  const activeServer = servers.find((server: Server) => server.id === activeServerId);
+
+  useEffect(() => {
+    if (activeModal === 'create-channel' && activeServer) {
+      setChannelParentId(activeServer.categories[0]?.id ?? null);
+      setChannelName('');
+    }
+  }, [activeModal, activeServerId, activeServer]);
 
   if (!activeModal) return null;
 
@@ -45,8 +58,18 @@ export const Modals: React.FC = () => {
   const handleCreateChannel = (e: React.FormEvent) => {
     e.preventDefault();
     if (channelName.trim() && activeServerId) {
-      addChannel(activeServerId, channelName.trim(), channelType, channelCategory);
+      addChannel(activeServerId, channelName.trim(), channelType, channelParentId);
       setChannelName('');
+      setChannelParentId(null);
+      closeModal();
+    }
+  };
+
+  const handleCreateCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (categoryName.trim() && activeServerId) {
+      addCategory(activeServerId, categoryName.trim());
+      setCategoryName('');
       closeModal();
     }
   };
@@ -169,7 +192,7 @@ export const Modals: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <button 
                     type="button"
-                    onClick={() => { setChannelType('text'); setChannelCategory('CONVERSA'); }}
+                    onClick={() => setChannelType('text')}
                     className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-colors ${channelType === 'text' ? 'border-primary bg-primary/10' : 'border-discordex-border bg-discordex-bg hover:bg-discordex-surface'}`}
                   >
                     <span className="text-lg">#</span>
@@ -177,7 +200,7 @@ export const Modals: React.FC = () => {
                   </button>
                   <button 
                     type="button"
-                    onClick={() => { setChannelType('voice'); setChannelCategory('VOZ'); }}
+                    onClick={() => setChannelType('voice')}
                     className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-colors ${channelType === 'voice' ? 'border-primary bg-primary/10' : 'border-discordex-border bg-discordex-bg hover:bg-discordex-surface'}`}
                   >
                     <span className="text-sm">🔊</span>
@@ -191,13 +214,14 @@ export const Modals: React.FC = () => {
                   Categoria
                 </label>
                 <select 
-                  value={channelCategory}
-                  onChange={(e) => setChannelCategory(e.target.value as any)}
+                  value={channelParentId ?? ''}
+                  onChange={(e) => setChannelParentId(e.target.value || null)}
                   className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary focus:outline-none focus:border-primary text-sm"
                 >
-                  <option value="INFORMAÇÕES">INFORMAÇÕES</option>
-                  <option value="CONVERSA">CONVERSA</option>
-                  <option value="VOZ">VOZ</option>
+                  <option value="">Nenhuma</option>
+                  {(activeServer?.categories || []).map((category) => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))}
                 </select>
               </div>
 
@@ -210,6 +234,50 @@ export const Modals: React.FC = () => {
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
                   placeholder="novo-canal" 
+                  className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors text-sm"
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-discordex-surface flex justify-end gap-3 border-t border-discordex-border">
+              <button 
+                type="button" 
+                onClick={closeModal} 
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-discordex-text-primary hover:bg-discordex-hover transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary hover:bg-primary-hover text-white transition-colors"
+              >
+                Criar
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Create Category Modal */}
+        {activeModal === 'create-category' && (
+          <form onSubmit={handleCreateCategory}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-discordex-text-primary">Criar categoria</h3>
+                <button type="button" onClick={closeModal} className="text-discordex-text-secondary hover:text-discordex-text-primary">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-2">
+                <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                  Nome da categoria
+                </label>
+                <input 
+                  type="text" 
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  placeholder="Ex.: Canais de Texto" 
                   className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors text-sm"
                   required
                   autoFocus
