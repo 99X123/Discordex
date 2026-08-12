@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export interface ContextMenuItem {
-  label: string;
+  label?: string;
   icon?: React.ReactNode;
   onClick?: () => void;
   danger?: boolean;
@@ -72,22 +72,24 @@ export const ContextMenuProvider: React.FC<{ children: React.ReactNode }> = ({ c
           {menu.items.map((item, index) => (
             <React.Fragment key={index}>
               {item.divider && <div className="h-px bg-discordex-border my-1" />}
-              <button
-                onClick={() => {
-                  closeMenu();
-                  item.onClick?.();
-                }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left ${
-                  item.danger
-                    ? 'text-discordex-danger hover:bg-discordex-danger/10'
-                    : item.success
-                      ? 'text-discordex-success hover:bg-discordex-success/10'
-                      : 'text-discordex-text-primary hover:bg-discordex-hover'
-                }`}
-              >
-                {item.icon}
-                <span className="truncate">{item.label}</span>
-              </button>
+              {item.label !== undefined && item.label !== '' && (
+                <button
+                  onClick={() => {
+                    closeMenu();
+                    item.onClick?.();
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left ${
+                    item.danger
+                      ? 'text-discordex-danger hover:bg-discordex-danger/10'
+                      : item.success
+                        ? 'text-discordex-success hover:bg-discordex-success/10'
+                        : 'text-discordex-text-primary hover:bg-discordex-hover'
+                  }`}
+                >
+                  {item.icon}
+                  <span className="truncate">{item.label}</span>
+                </button>
+              )}
             </React.Fragment>
           ))}
         </div>

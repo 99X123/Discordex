@@ -1,15 +1,47 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Tooltip } from './SharedUI';
+import { PERMISSIONS, hasPermission } from '../lib/permissions';
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare,
-  PhoneOff, Wifi, Users, Volume2, VolumeX, Maximize, Minimize
+  PhoneOff, Wifi, Users, Volume2, VolumeX, Maximize, Minimize, MoveRight,
 } from 'lucide-react';
 
 export const CallView: React.FC = () => {
-  const { callState, currentUser, endCall, toggleMute, toggleCamera, toggleScreenShare, toggleSpeakerMute } = useApp();
+  const {
+    callState,
+    currentUser,
+    endCall,
+    toggleMute,
+    toggleCamera,
+    toggleScreenShare,
+    toggleSpeakerMute,
+    servers,
+    serverMembers,
+    getMyPermissions,
+    disconnectMemberFromCall,
+    moveMemberBetweenChannels,
+    setMemberMuted,
+    setMemberDeafened,
+  } = useApp();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
+  const [deafenedMap, setDeafenedMap] = useState<Record<string, boolean>>({});
+
+  const callServer = servers.find((server) =>
+    server.channels.some((channel) => channel.id === callState.channelId && channel.type === 'voice')
+  );
+
+  const myPerms = callServer ? getMyPermissions(callServer.id) : { permissions: 0, isOwner: false, topPosition: -1 };
+  const hasPerm = (bit: number) => myPerms.isOwner || hasPermission(myPerms.permissions, bit);
+
+  const targetTopPosition = (userId: string) => {
+    const member = (serverMembers[callServer?.id || ''] || []).find((m) => m.userId === userId);
+    return member?.roles?.[0]?.position ?? -1;
+  };
+
+  const canManage = (userId: string) => myPerms.isOwner || myPerms.topPosition > targetTopPosition(userId);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -99,7 +131,7 @@ export const CallView: React.FC = () => {
             return (
               <div
                 key={p.id}
-                className={`bg-discordex-secondary border rounded-2xl overflow-hidden relative flex flex-col items-center justify-center transition-all duration-300 ${
+                className={`bg-discordex-secondary border rounded-2xl overflow-hidden relative flex flex-col items-center justify-center transition-all duration-300 group ${
                   p.isSpeaking
                     ? 'border-primary ring-2 ring-primary/40 shadow-[0_0_12px_rgba(229,57,53,0.3)]'
                     : 'border-discordex-border'
@@ -149,6 +181,79 @@ export const CallView: React.FC = () => {
                     {!p.isCameraOn && !isSharing && <VideoOff className="w-3 h-3 text-discordex-text-secondary" />}
                   </div>
                 </div>
+
+                {/* Moderation toolbar */}
+                {!isMe && callServer && callState.channelId && canManage(p.id) && (
+                  <div className="absolute top-2.5 right-2.5 z-30 flex items-center gap-1 bg-black/60 backdrop-blur-md px-1.5 py-1 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                    {hasPerm(PERMISSIONS.DISCONNECT_MEMBERS) && (
+                      <Tooltip content="Desconectar da call" position="bottom">
+                        <button
+                          onClick={() => { void disconnectMemberFromCall(callServer.id, p.id, callState.channelId!); }}
+                          className="p-1.5 text-discordex-danger hover:bg-discordex-danger/20 rounded-lg transition-colors"
+                        >
+                          <PhoneOff className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
+                    )}
+                    {hasPerm(PERMISSIONS.MUTE_MEMBERS) && (
+                      <Tooltip content={p.isMuted ? 'Ativar microfone' : 'Mutar'} position="bottom">
+                        <button
+                          onClick={() => { void setMemberMuted(callServer.id, p.id, !p.isMuted); }}
+                          className="p-1.5 text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+                        >
+                          {p.isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                        </button>
+                      </Tooltip>
+                    )}
+                    {hasPerm(PERMISSIONS.DEAFEN_MEMBERS) && (
+                      <Tooltip content={deafenedMap[p.id] ? 'Ativar som' : 'Ensurdear'} position="bottom">
+                        <button
+                          onClick={() => {
+                            const next = !deafenedMap[p.id];
+                            setDeafenedMap((prev) => ({ ...prev, [p.id]: next }));
+                            void setMemberDeafened(callServer.id, p.id, next);
+                          }}
+                          className="p-1.5 text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+                        >
+                          {deafenedMap[p.id] ? <VolumeX className="w-3.5 h-3.5 text-discordex-danger" /> : <VolumeX className="w-3.5 h-3.5" />}
+                        </button>
+                      </Tooltip>
+                    )}
+                    {hasPerm(PERMISSIONS.MOVE_MEMBERS) && (
+                      <div className="relative">
+                        <Tooltip content="Mover de call" position="bottom">
+                          <button
+                            onClick={() => setMoveMenuFor(moveMenuFor === p.id ? null : p.id)}
+                            className="p-1.5 text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+                          >
+                            <MoveRight className="w-3.5 h-3.5" />
+                          </button>
+                        </Tooltip>
+                        {moveMenuFor === p.id && (
+                          <div className="absolute right-0 top-full mt-1 z-40 min-w-[180px] bg-discordex-surface border border-discordex-border rounded-xl p-1.5 shadow-2xl">
+                            <span className="block px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-discordex-text-secondary">
+                              Mover para...
+                            </span>
+                            {callServer.channels
+                              .filter((channel) => channel.type === 'voice' && channel.id !== callState.channelId)
+                              .map((channel) => (
+                                <button
+                                  key={channel.id}
+                                  onClick={() => {
+                                    setMoveMenuFor(null);
+                                    void moveMemberBetweenChannels(callServer.id, p.id, callState.channelId!, channel.id);
+                                  }}
+                                  className="w-full text-left px-2 py-1.5 rounded-lg text-xs text-discordex-text-primary hover:bg-discordex-hover transition-colors"
+                                >
+                                  {channel.name}
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
               </div>
             );

@@ -3,10 +3,12 @@ import { useApp } from '../context/AppContext';
 import type { Server } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { createServerInvite, getServerInvites } from '../services/servers';
+import { RoleSettings, AuditLogs } from './ServerRoleSettings';
+import { PERMISSIONS, hasPermission } from '../lib/permissions';
 import type { Database } from '../lib/database.types';
 import { Camera, Hash, Volume2, Trash2, Pencil, Check, X, X as CloseIcon, Shield, ChevronLeft, Link2, Copy, Plus } from 'lucide-react';
 
-type Tab = 'overview' | 'channels' | 'members' | 'invites';
+type Tab = 'overview' | 'channels' | 'members' | 'roles' | 'invites' | 'logs';
 
 type Invite = Database['public']['Tables']['invites']['Row'];
 
@@ -38,7 +40,7 @@ const statusColor = (status: string) =>
   'bg-discordex-text-secondary';
 
 export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> = ({ server, onClose }) => {
-  const { updateServerConfig, deleteChannel, refreshServers, serverMembers, currentUser, addToast } = useApp();
+  const { updateServerConfig, deleteChannel, refreshServers, serverMembers, currentUser, addToast, getMyPermissions } = useApp();
 
   const [tab, setTab] = useState<Tab>('overview');
   const [name, setName] = useState(server.name);
@@ -53,6 +55,12 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   const isOwner = currentUser?.id === server.ownerId;
+  const myPerms = getMyPermissions(server.id);
+  const canManageRoles = isOwner || hasPermission(myPerms.permissions, PERMISSIONS.MANAGE_ROLES);
+  const canViewLogs = isOwner
+    || hasPermission(myPerms.permissions, PERMISSIONS.MANAGE_SERVER)
+    || hasPermission(myPerms.permissions, PERMISSIONS.VIEW_AUDIT_LOG)
+    || canManageRoles;
 
   useEffect(() => {
     setName(server.name);
@@ -192,12 +200,28 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
             >
               Membros
             </button>
+            {canManageRoles && (
+              <button
+                onClick={() => setTab('roles')}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'roles' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+              >
+                Cargos
+              </button>
+            )}
             <button
               onClick={() => setTab('invites')}
               className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'invites' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
             >
               Convites
             </button>
+            {canViewLogs && (
+              <button
+                onClick={() => setTab('logs')}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'logs' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+              >
+                Logs
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -402,6 +426,14 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void }> =
               )}
             </div>
           </div>
+        )}
+
+        {tab === 'roles' && canManageRoles && (
+          <RoleSettings server={server} />
+        )}
+
+        {tab === 'logs' && canViewLogs && (
+          <AuditLogs server={server} />
         )}
 
         {tab === 'invites' && (

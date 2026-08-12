@@ -423,6 +423,49 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      channel_role_permissions: {
+        Row: {
+          id: string;
+          channel_id: string;
+          role_id: string;
+          can_view: boolean;
+          can_send: boolean;
+          created_at: string;
+        };
+        Insert: {
+          channel_id: string;
+          role_id: string;
+          can_view?: boolean;
+          can_send?: boolean;
+        };
+        Update: {
+          can_view?: boolean;
+          can_send?: boolean;
+        };
+        Relationships: [];
+      };
+      audit_logs: {
+        Row: {
+          id: string;
+          server_id: string;
+          actor_id: string;
+          action: string;
+          target_id: string | null;
+          target_name: string | null;
+          details: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          server_id: string;
+          actor_id: string;
+          action: string;
+          target_id?: string | null;
+          target_name?: string | null;
+          details?: Json | null;
+        };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -475,6 +518,98 @@ export interface Database {
           updated_at: string;
           is_admin: boolean;
         }[];
+      };
+      create_role: {
+        Args: { p_server_id: string; p_name: string; p_color?: string | null; p_permissions?: number | null };
+        Returns: Json;
+      };
+      update_role: {
+        Args: {
+          p_server_id: string;
+          p_role_id: string;
+          p_name?: string | null;
+          p_color?: string | null;
+          p_permissions?: number | null;
+          p_position?: number | null;
+        };
+        Returns: Json;
+      };
+      delete_role: {
+        Args: { p_server_id: string; p_role_id: string };
+        Returns: Json;
+      };
+      add_role_to_member: {
+        Args: { p_server_id: string; p_target_id: string; p_role_id: string };
+        Returns: Json;
+      };
+      remove_role_from_member: {
+        Args: { p_server_id: string; p_target_id: string; p_role_id: string };
+        Returns: Json;
+      };
+      promote_member: {
+        Args: { p_server_id: string; p_target_id: string; p_role_id: string };
+        Returns: Json;
+      };
+      demote_member: {
+        Args: { p_server_id: string; p_target_id: string; p_role_id: string };
+        Returns: Json;
+      };
+      disconnect_member: {
+        Args: { p_server_id: string; p_target_id: string; p_channel_id: string };
+        Returns: Json;
+      };
+      move_member: {
+        Args: { p_server_id: string; p_target_id: string; p_from_channel_id: string; p_to_channel_id: string };
+        Returns: Json;
+      };
+      set_member_muted: {
+        Args: { p_server_id: string; p_target_id: string; p_muted: boolean };
+        Returns: Json;
+      };
+      set_member_deafened: {
+        Args: { p_server_id: string; p_target_id: string; p_deafened: boolean };
+        Returns: Json;
+      };
+      set_channel_role_permission: {
+        Args: { p_channel_id: string; p_role_id: string; p_can_view: boolean; p_can_send?: boolean | null };
+        Returns: Json;
+      };
+      remove_channel_role_permission: {
+        Args: { p_channel_id: string; p_role_id: string };
+        Returns: Json;
+      };
+      get_audit_logs: {
+        Args: { p_server_id: string; p_limit?: number | null };
+        Returns: {
+          id: string;
+          action: string;
+          actor_id: string;
+          actor_name: string;
+          target_id: string | null;
+          target_name: string | null;
+          details: Json | null;
+          created_at: string;
+        }[];
+      };
+      get_user_top_role_position: {
+        Args: { p_user_id: string; p_server_id: string };
+        Returns: number;
+      };
+      can_manage_member: {
+        Args: { p_executor_id: string; p_server_id: string; p_target_id: string };
+        Returns: boolean;
+      };
+      can_manage_role: {
+        Args: { p_executor_id: string; p_role_id: string };
+        Returns: boolean;
+      };
+      can_view_channel: {
+        Args: { p_user_id: string; p_channel_id: string };
+        Returns: boolean;
+      };
+      can_send_to_channel: {
+        Args: { p_user_id: string; p_channel_id: string };
+        Returns: boolean;
       };
     };
     Enums: Record<string, never>;

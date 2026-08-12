@@ -8,6 +8,7 @@ export interface MemberRole {
   name: string;
   color: string;
   position: number;
+  permissions: number;
 }
 
 export interface ServerMemberWithProfile {
@@ -31,7 +32,7 @@ export async function getServerMembersWithRoles(serverId: string): Promise<Serve
 
   const { data: roleRows } = await supabase
     .from('roles')
-    .select('id, name, color, position')
+    .select('id, name, color, position, permissions')
     .eq('server_id', serverId);
 
   const roles = (roleRows || []) as MemberRole[];

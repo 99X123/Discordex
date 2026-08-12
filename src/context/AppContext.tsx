@@ -1,10 +1,29 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { createChannel as createChannelRecord } from '../services/channels';
 import { createServer, deleteServer as deleteServerRecord, extractInviteCode, getMyServers, joinServerViaInvite, leaveServer, updateServer as updateServerRecord } from '../services/servers';
 import { getMyProfile, updateProfile } from '../services/profiles';
 import { getServerMembersWithRoles, type ServerMemberWithProfile } from '../services/members';
+import {
+  addRoleToMember as addRoleToMemberRpc,
+  banMember as banMemberRpc,
+  createRole as createRoleRpc,
+  deleteRole as deleteRoleRpc,
+  demoteMember as demoteMemberRpc,
+  disconnectMember as disconnectMemberRpc,
+  getChannelRolePermissions,
+  getServerRoles,
+  kickMember as kickMemberRpc,
+  moveMember as moveMemberRpc,
+  promoteMember as promoteMemberRpc,
+  removeChannelRolePermission as removeChannelRolePermissionRpc,
+  removeRoleFromMember as removeRoleFromMemberRpc,
+  setChannelRolePermission as setChannelRolePermissionRpc,
+  setMemberDeafened as setMemberDeafenedRpc,
+  setMemberMuted as setMemberMutedRpc,
+  updateRole as updateRoleRpc,
+} from '../services/roles';
 import { VoiceCallEngine, type CallParticipantInfo } from '../lib/webrtcCall';
 import { applyNoiseSuppression } from '../lib/noiseGate';
 import { playJoinSound, playLeaveSound, playPopSound, playRingTone, stopRingTone } from '../lib/sounds';
@@ -78,7 +97,31 @@ export interface ServerMember {
   nickname: string | null;
   joinedAt: string;
   profile: User;
-  roles: { id: string; name: string; color: string; position: number }[];
+  roles: { id: string; name: string; color: string; position: number; permissions: number }[];
+}
+
+export interface ServerRole {
+  id: string;
+  server_id: string;
+  name: string;
+  color: string;
+  position: number;
+  permissions: number;
+  created_at: string;
+}
+
+export interface ChannelRolePerm {
+  id: string;
+  channel_id: string;
+  role_id: string;
+  can_view: boolean;
+  can_send: boolean;
+}
+
+export interface MyPermissions {
+  permissions: number;
+  isOwner: boolean;
+  topPosition: number;
 }
 
 export interface CallState {
@@ -135,6 +178,25 @@ interface AppContextType {
   isAppAdmin: boolean;
   serverMembers: Record<string, ServerMember[]>;
   voiceCounts: Record<string, number>;
+  serverRoles: Record<string, ServerRole[]>;
+  serverChannelPerms: Record<string, ChannelRolePerm[]>;
+  getMyPermissions: (serverId: string) => MyPermissions;
+  canManageUser: (serverId: string, targetTopPosition: number) => boolean;
+  createRole: (serverId: string, name: string, color: string, permissions: number) => Promise<boolean>;
+  updateRole: (serverId: string, roleId: string, updates: { name?: string; color?: string; permissions?: number; position?: number }) => Promise<boolean>;
+  deleteRole: (serverId: string, roleId: string) => Promise<boolean>;
+  addRoleToMember: (serverId: string, targetId: string, roleId: string) => Promise<boolean>;
+  removeRoleFromMember: (serverId: string, targetId: string, roleId: string) => Promise<boolean>;
+  promoteMember: (serverId: string, targetId: string, roleId: string) => Promise<boolean>;
+  demoteMember: (serverId: string, targetId: string, roleId: string) => Promise<boolean>;
+  kickMember: (serverId: string, targetId: string) => Promise<boolean>;
+  banMember: (serverId: string, targetId: string) => Promise<boolean>;
+  disconnectMemberFromCall: (serverId: string, targetId: string, channelId: string) => Promise<boolean>;
+  moveMemberBetweenChannels: (serverId: string, targetId: string, fromChannelId: string, toChannelId: string) => Promise<boolean>;
+  setMemberMuted: (serverId: string, targetId: string, muted: boolean) => Promise<boolean>;
+  setMemberDeafened: (serverId: string, targetId: string, deafened: boolean) => Promise<boolean>;
+  setChannelRolePermission: (channelId: string, roleId: string, canView: boolean, canSend: boolean) => Promise<boolean>;
+  removeChannelRolePermission: (channelId: string, roleId: string) => Promise<boolean>;
   addServer: (name: string) => void;
   joinServer: (inviteCode: string) => void;
   deleteServer: (serverId: string) => void;
@@ -240,6 +302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAppAdmin, setIsAppAdmin] = useState(false);
   const [serverMembers, setServerMembers] = useState<Record<string, ServerMember[]>>({});
   const [voiceCounts, setVoiceCounts] = useState<Record<string, number>>({});
+  const [serverRoles, setServerRoles] = useState<Record<string, ServerRole[]>>({});
+  const [serverChannelPerms, setServerChannelPerms] = useState<Record<string, ChannelRolePerm[]>>({});
   const engineRef = useRef<VoiceCallEngine | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const callTypeRef = useRef<'server' | 'dm' | null>(null);
@@ -394,6 +458,103 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
     setServerMembers((prev) => ({ ...prev, [serverId]: mapped }));
   };
+
+  const loadServerRoles = async (serverId: string) => {
+    const [roles, perms] = await Promise.all([
+      getServerRoles(serverId),
+      getChannelRolePermissions(serverId),
+    ]);
+    setServerRoles((prev) => ({ ...prev, [serverId]: roles }));
+    setServerChannelPerms((prev) => ({ ...prev, [serverId]: perms }));
+  };
+
+  useEffect(() => {
+    if (activeServerId) void loadServerRoles(activeServerId);
+  }, [activeServerId]);
+
+  const getMyPermissions = useCallback((serverId: string): MyPermissions => {
+    const server = serverRows.find((row) => row.id === serverId);
+    const isOwner = Boolean(server && currentUser && server.owner_id === currentUser.id);
+    const me = (serverMembers[serverId] || []).find((member) => member.userId === currentUser?.id);
+    let permissions = 0;
+    let topPosition = -1;
+    (me?.roles || []).forEach((role) => {
+      permissions |= role.permissions;
+      if (role.position > topPosition) topPosition = role.position;
+    });
+    if (isOwner) topPosition = 2147483647;
+    return { permissions, isOwner, topPosition };
+  }, [serverRows, serverMembers, currentUser]);
+
+  const canManageUser = useCallback((serverId: string, targetTopPosition: number) => {
+    const { isOwner, topPosition } = getMyPermissions(serverId);
+    return isOwner || topPosition > targetTopPosition;
+  }, [getMyPermissions]);
+
+  const refreshServerRolesAndMembers = async (serverId?: string) => {
+    const target = serverId || activeServerId;
+    if (!target) return;
+    await Promise.all([loadServerMembers(target), loadServerRoles(target)]);
+  };
+
+  const runAction = async (
+    action: () => Promise<{ success: boolean; error?: string }>,
+    successMessage: string
+  ): Promise<boolean> => {
+    const result = await action();
+    if (!result.success) {
+      addToast(result.error || 'Ação não concluída.', 'error');
+      return false;
+    }
+    addToast(successMessage, 'success');
+    await refreshServerRolesAndMembers();
+    return true;
+  };
+
+  const createRole = (serverId: string, name: string, color: string, permissions: number) =>
+    runAction(() => createRoleRpc(serverId, name, color, permissions), `Cargo "${name}" criado.`);
+
+  const updateRole = (serverId: string, roleId: string, updates: { name?: string; color?: string; permissions?: number; position?: number }) =>
+    runAction(() => updateRoleRpc(serverId, roleId, updates), 'Cargo atualizado.');
+
+  const deleteRole = (serverId: string, roleId: string) =>
+    runAction(() => deleteRoleRpc(serverId, roleId), 'Cargo removido.');
+
+  const addRoleToMember = (serverId: string, targetId: string, roleId: string) =>
+    runAction(() => addRoleToMemberRpc(serverId, targetId, roleId), 'Cargo adicionado ao membro.');
+
+  const removeRoleFromMember = (serverId: string, targetId: string, roleId: string) =>
+    runAction(() => removeRoleFromMemberRpc(serverId, targetId, roleId), 'Cargo removido do membro.');
+
+  const promoteMember = (serverId: string, targetId: string, roleId: string) =>
+    runAction(() => promoteMemberRpc(serverId, targetId, roleId), 'Membro promovido.');
+
+  const demoteMember = (serverId: string, targetId: string, roleId: string) =>
+    runAction(() => demoteMemberRpc(serverId, targetId, roleId), 'Membro rebaixado.');
+
+  const kickMember = (serverId: string, targetId: string) =>
+    runAction(() => kickMemberRpc(serverId, targetId), 'Membro removido do grupo.');
+
+  const banMember = (serverId: string, targetId: string) =>
+    runAction(() => banMemberRpc(serverId, targetId), 'Membro banido do grupo.');
+
+  const disconnectMemberFromCall = (serverId: string, targetId: string, channelId: string) =>
+    runAction(() => disconnectMemberRpc(serverId, targetId, channelId), 'Membro desconectado da call.');
+
+  const moveMemberBetweenChannels = (serverId: string, targetId: string, fromChannelId: string, toChannelId: string) =>
+    runAction(() => moveMemberRpc(serverId, targetId, fromChannelId, toChannelId), 'Membro movido para outra call.');
+
+  const setMemberMuted = (serverId: string, targetId: string, muted: boolean) =>
+    runAction(() => setMemberMutedRpc(serverId, targetId, muted), muted ? 'Membro mutado.' : 'Microfone do membro ativado.');
+
+  const setMemberDeafened = (serverId: string, targetId: string, deafened: boolean) =>
+    runAction(() => setMemberDeafenedRpc(serverId, targetId, deafened), deafened ? 'Membro ensurdecido.' : 'Som do membro ativado.');
+
+  const setChannelRolePermission = (channelId: string, roleId: string, canView: boolean, canSend: boolean) =>
+    runAction(() => setChannelRolePermissionRpc(channelId, roleId, canView, canSend), 'Permissão de canal atualizada.');
+
+  const removeChannelRolePermission = (channelId: string, roleId: string) =>
+    runAction(() => removeChannelRolePermissionRpc(channelId, roleId), 'Permissão de canal removida.');
 
   useEffect(() => {
     if (activeServerId) void loadServerMembers(activeServerId);
@@ -1184,6 +1345,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isAppAdmin,
       serverMembers,
       voiceCounts,
+      serverRoles,
+      serverChannelPerms,
+      getMyPermissions,
+      canManageUser,
+      createRole,
+      updateRole,
+      deleteRole,
+      addRoleToMember,
+      removeRoleFromMember,
+      promoteMember,
+      demoteMember,
+      kickMember,
+      banMember,
+      disconnectMemberFromCall,
+      moveMemberBetweenChannels,
+      setMemberMuted,
+      setMemberDeafened,
+      setChannelRolePermission,
+      removeChannelRolePermission,
       addServer,
       joinServer,
       deleteServer,
