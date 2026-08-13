@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Camera, Gauge, FilmSlate, SignOut, Microphone, Monitor, ArrowsClockwise, Shield, VideoCamera, X, ImageSquare } from '@phosphor-icons/react';
+import { Camera, Gauge, FilmSlate, SignOut, Microphone, Monitor, ArrowsClockwise, Shield, VideoCamera, X, ImageSquare, Users, CellSignalHigh, UsersThree, PhoneCall, ChatCircleDots, EnvelopeSimpleOpen, Hash, Waveform } from '@phosphor-icons/react';
 import { useApp } from '../context/AppContext';
 import { ServerSettings } from './ServerSettings';
 import { logout } from '../services/auth';
@@ -49,6 +49,9 @@ export const SettingsPanel: React.FC = () => {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [adminStats, setAdminStats] = useState<Record<string, number> | null>(null);
+  const [adminStatsLoading, setAdminStatsLoading] = useState(false);
+  const [adminAction, setAdminAction] = useState<string | null>(null);
   const activeServer = servers.find((server) => server.id === activeServerSettingsId);
 
   useEffect(() => {
@@ -79,8 +82,41 @@ export const SettingsPanel: React.FC = () => {
     setAdminAccounts(data || []);
   };
 
+  const loadAdminStats = async () => {
+    if (!isAppAdmin) return;
+    setAdminStatsLoading(true);
+    const { data, error } = await supabase.rpc('get_admin_stats', {});
+    setAdminStatsLoading(false);
+    if (error || !data) {
+      setAdminStats(null);
+      return;
+    }
+    setAdminStats(data as Record<string, number>);
+  };
+
+  const runAdminAction = async (
+    rpc: 'promote_app_admin' | 'revoke_app_admin' | 'delete_app_account',
+    accountId: string,
+    confirmMessage: string
+  ) => {
+    if (adminAction) return;
+    if (!window.confirm(confirmMessage)) return;
+    setAdminAction(accountId);
+    const { error } = await supabase.rpc(rpc, { p_target_id: accountId });
+    setAdminAction(null);
+    if (error) {
+      window.alert(error.message);
+      return;
+    }
+    void loadAdminAccounts();
+    void loadAdminStats();
+  };
+
   useEffect(() => {
-    if (isSettingsOpen && activeTab === 'admin') void loadAdminAccounts();
+    if (isSettingsOpen && activeTab === 'admin') {
+      void loadAdminAccounts();
+      void loadAdminStats();
+    }
   }, [isSettingsOpen, activeTab, isAppAdmin]);
 
   if (!isSettingsOpen) return null;
@@ -572,30 +608,57 @@ export const SettingsPanel: React.FC = () => {
         )}
 
         {activeTab === 'admin' && isAppAdmin && (
-          <section className="max-w-4xl space-y-6">
+          <section className="max-w-5xl space-y-6">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-display font-bold text-signal-text-primary">Painel Admin</h2>
                 <p className="text-xs text-signal-text-secondary mt-1">
-                  Contas registradas no Supabase.
+                  Administracao global do Discordex.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={loadAdminAccounts}
+                onClick={() => { void loadAdminAccounts(); void loadAdminStats(); }}
                 className="px-4 py-2.5 bg-signal-secondary hover:bg-signal-surface border border-signal-border text-signal-text-primary rounded-md text-xs font-semibold inline-flex items-center gap-2 transition-colors"
               >
-                <ArrowsClockwise className={`w-4 h-4 ${adminLoading ? 'animate-spin' : ''}`} />
+                <ArrowsClockwise className={`w-4 h-4 ${adminLoading || adminStatsLoading ? 'animate-spin' : ''}`} />
                 Atualizar
               </button>
             </div>
 
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Usuarios', value: adminStats?.total_users, icon: Users },
+                { label: 'Online agora', value: adminStats?.online_users, icon: CellSignalHigh },
+                { label: 'Servidores', value: adminStats?.total_servers, icon: Hash },
+                { label: 'Canais', value: adminStats?.total_channels, icon: Waveform },
+                { label: 'Mensagens', value: adminStats?.total_messages, icon: ChatCircleDots },
+                { label: 'Mensagens diretas', value: adminStats?.total_dm_messages, icon: EnvelopeSimpleOpen },
+                { label: 'Amizades', value: adminStats?.total_friendships, icon: UsersThree },
+                { label: 'Em chamada', value: adminStats?.active_voice, icon: PhoneCall },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={stat.label} className="bg-signal-secondary border border-signal-border rounded-md p-4 space-y-2">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider">
+                      <Icon className="w-3.5 h-3.5 text-brass" />
+                      {stat.label}
+                    </span>
+                    <span className="block text-2xl font-display font-bold text-signal-text-primary font-mono">
+                      {stat.value === undefined ? '—' : stat.value.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
             <div className="bg-signal-secondary border border-signal-border rounded-md overflow-hidden">
-              <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.8fr] gap-3 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-signal-text-secondary border-b border-signal-border">
+              <div className="grid grid-cols-[1.6fr_1fr_0.8fr_1fr_1.4fr] gap-3 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-signal-text-secondary border-b border-signal-border">
                 <span>Conta</span>
                 <span>Status</span>
                 <span>Tipo</span>
                 <span>Criada em</span>
+                <span className="text-right">Acoes</span>
               </div>
 
               {adminAccounts.length === 0 ? (
@@ -606,7 +669,7 @@ export const SettingsPanel: React.FC = () => {
                 adminAccounts.map((account) => (
                   <div
                     key={account.id}
-                    className="grid grid-cols-[1.6fr_1fr_0.8fr_0.8fr] gap-3 px-4 py-3 items-center border-b border-signal-border/60 last:border-b-0 hover:bg-signal-surface/30 transition-colors"
+                    className="grid grid-cols-[1.6fr_1fr_0.8fr_1fr_1.4fr] gap-3 px-4 py-3 items-center border-b border-signal-border/60 last:border-b-0 hover:bg-signal-surface/30 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <img
@@ -630,6 +693,35 @@ export const SettingsPanel: React.FC = () => {
                     <span className="text-[10px] text-signal-text-secondary font-mono">
                       {new Date(account.created_at).toLocaleDateString('pt-BR')}
                     </span>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {account.is_admin ? (
+                        <button
+                          type="button"
+                          disabled={adminAction === account.id || account.id === currentUser.id}
+                          onClick={() => runAdminAction('revoke_app_admin', account.id, `Remover admin de ${account.display_name}?`)}
+                          className="px-2.5 py-1.5 rounded-md text-[10px] font-bold bg-signal-bg border border-signal-border text-signal-warning hover:bg-signal-warning/10 transition-colors disabled:opacity-50"
+                        >
+                          Remover admin
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={adminAction === account.id}
+                          onClick={() => runAdminAction('promote_app_admin', account.id, `Tornar ${account.display_name} admin global?`)}
+                          className="px-2.5 py-1.5 rounded-md text-[10px] font-bold bg-brass/10 border border-brass/30 text-brass hover:bg-brass hover:text-signal-bg transition-colors disabled:opacity-50"
+                        >
+                          Tornar admin
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={adminAction === account.id || account.id === currentUser.id}
+                        onClick={() => runAdminAction('delete_app_account', account.id, `BANIR ${account.display_name}? Esta acao remove a conta permanentemente.`)}
+                        className="px-2.5 py-1.5 rounded-md text-[10px] font-bold bg-signal-danger/10 border border-signal-danger/30 text-signal-danger hover:bg-signal-danger hover:text-white transition-colors disabled:opacity-50"
+                      >
+                        Banir
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

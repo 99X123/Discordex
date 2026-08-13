@@ -512,6 +512,22 @@ export interface Database {
         Args: { p_user_id?: string };
         Returns: boolean;
       };
+      get_admin_stats: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      promote_app_admin: {
+        Args: { p_target_id: string };
+        Returns: Json;
+      };
+      revoke_app_admin: {
+        Args: { p_target_id: string };
+        Returns: Json;
+      };
+      delete_app_account: {
+        Args: { p_target_id: string };
+        Returns: Json;
+      };
       list_registered_accounts: {
         Args: Record<string, never>;
         Returns: {
