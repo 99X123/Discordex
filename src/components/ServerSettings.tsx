@@ -3,12 +3,13 @@ import { useApp } from '../context/AppContext';
 import type { Server } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { createServerInvite, getServerInvites } from '../services/servers';
+import { getServerBans, unbanMember, type ServerBanWithProfile } from '../services/members';
 import { RoleSettings, AuditLogs } from './ServerRoleSettings';
 import { PERMISSIONS, hasPermission } from '../lib/permissions';
 import type { Database } from '../lib/database.types';
-import { Camera, Hash, Volume2, Trash2, Pencil, Check, X, X as CloseIcon, Shield, ChevronLeft, Link2, Copy, Plus } from 'lucide-react';
+import { Ban, Camera, Clock, Hash, Volume2, Trash2, Pencil, Check, X, X as CloseIcon, Shield, ChevronLeft, Link2, Copy, Plus, UserMinus } from 'lucide-react';
 
-type Tab = 'overview' | 'channels' | 'members' | 'roles' | 'invites' | 'logs';
+type Tab = 'overview' | 'channels' | 'members' | 'bans' | 'roles' | 'invites' | 'logs';
 
 type Invite = Database['public']['Tables']['invites']['Row'];
 
@@ -40,7 +41,7 @@ const statusColor = (status: string) =>
   'bg-discordex-text-secondary';
 
 export const ServerSettings: React.FC<{ server: Server; onClose: () => void; initialTab?: string; initialRoleId?: string | null }> = ({ server, onClose, initialTab, initialRoleId }) => {
-  const { updateServerConfig, deleteChannel, refreshServers, serverMembers, currentUser, addToast, getMyPermissions, addCategory } = useApp();
+  const { updateServerConfig, deleteChannel, refreshServers, serverMembers, currentUser, addToast, getMyPermissions, canManageUser, addCategory, kickMember, banMember, timeoutMember } = useApp();
 
   const [tab, setTab] = useState<Tab>(() => (initialTab as Tab) || 'overview');
   const [name, setName] = useState(server.name);
@@ -54,10 +55,15 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [bans, setBans] = useState<ServerBanWithProfile[]>([]);
+  const [bansLoading, setBansLoading] = useState(false);
 
   const isOwner = currentUser?.id === server.ownerId;
   const myPerms = getMyPermissions(server.id);
   const canManageRoles = isOwner || hasPermission(myPerms.permissions, PERMISSIONS.MANAGE_ROLES);
+  const canKickMembers = isOwner || hasPermission(myPerms.permissions, PERMISSIONS.KICK_MEMBERS);
+  const canBanMembers = isOwner || hasPermission(myPerms.permissions, PERMISSIONS.BAN_MEMBERS);
+  const canTimeoutMembers = isOwner || hasPermission(myPerms.permissions, PERMISSIONS.MANAGE_MEMBERS) || hasPermission(myPerms.permissions, PERMISSIONS.KICK_MEMBERS);
   const canViewLogs = isOwner
     || hasPermission(myPerms.permissions, PERMISSIONS.MANAGE_SERVER)
     || hasPermission(myPerms.permissions, PERMISSIONS.VIEW_AUDIT_LOG)
@@ -69,6 +75,59 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
   }, [server]);
 
   const members = serverMembers[server.id] || [];
+
+  const loadBans = async () => {
+    setBansLoading(true);
+    const rows = await getServerBans(server.id);
+    setBans(rows);
+    setBansLoading(false);
+  };
+
+  useEffect(() => {
+    if (tab === 'bans') void loadBans();
+  }, [tab, server.id]);
+
+  const canModerateMember = (member: typeof members[number]) =>
+    member.userId !== currentUser?.id
+    && member.userId !== server.ownerId
+    && canManageUser(server.id, member.roles[0]?.position ?? -1);
+
+  const handleKickMember = async (member: typeof members[number]) => {
+    if (!canKickMembers || !canModerateMember(member)) return;
+    if (!window.confirm(`Expulsar ${member.profile.displayName} do grupo?`)) return;
+    await kickMember(server.id, member.userId);
+  };
+
+  const handleBanMember = async (member: typeof members[number]) => {
+    if (!canBanMembers || !canModerateMember(member)) return;
+    if (!window.confirm(`Banir ${member.profile.displayName} do grupo?`)) return;
+    await banMember(server.id, member.userId);
+    if (tab === 'bans') await loadBans();
+  };
+
+  const handleTimeoutMember = async (member: typeof members[number]) => {
+    if (!canTimeoutMembers || !canModerateMember(member)) return;
+    const raw = window.prompt(`Castigar ${member.profile.displayName} por quantos minutos?`, '10');
+    if (!raw) return;
+    const minutes = Number(raw);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 40320) {
+      addToast('Informe um tempo entre 1 minuto e 28 dias.', 'error');
+      return;
+    }
+    await timeoutMember(server.id, member.userId, minutes);
+  };
+
+  const handleUnban = async (ban: ServerBanWithProfile) => {
+    if (!canBanMembers) return;
+    if (!window.confirm(`Remover banimento de ${ban.profile.display_name}?`)) return;
+    const result = await unbanMember(server.id, ban.user_id);
+    if (!result.success) {
+      addToast(result.error || 'Nao foi possivel remover o banimento.', 'error');
+      return;
+    }
+    addToast('Banimento removido.', 'success');
+    await loadBans();
+  };
 
   const handleIconUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -246,6 +305,14 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
             >
               Membros
             </button>
+            {canBanMembers && (
+              <button
+                onClick={() => setTab('bans')}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'bans' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+              >
+                Banimentos
+              </button>
+            )}
             {canManageRoles && (
               <button
                 onClick={() => setTab('roles')}
@@ -469,6 +536,42 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
                         Sem cargo
                       </span>
                     )}
+                    {member.timeoutUntil && new Date(member.timeoutUntil) > new Date() && (
+                      <span className="text-[10px] font-bold text-discordex-warning px-2 py-1 bg-discordex-warning/10 rounded-lg shrink-0">
+                        Castigado
+                      </span>
+                    )}
+                    {canModerateMember(member) && (canKickMembers || canBanMembers || canTimeoutMembers) && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {canTimeoutMembers && (
+                          <button
+                            onClick={() => handleTimeoutMember(member)}
+                            className="p-1.5 rounded-lg text-discordex-warning hover:bg-discordex-warning/10 transition-colors"
+                            title="Castigar com timeout"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canKickMembers && (
+                          <button
+                            onClick={() => handleKickMember(member)}
+                            className="p-1.5 rounded-lg text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface transition-colors"
+                            title="Expulsar"
+                          >
+                            <UserMinus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canBanMembers && (
+                          <button
+                            onClick={() => handleBanMember(member)}
+                            className="p-1.5 rounded-lg text-discordex-danger hover:bg-discordex-danger/10 transition-colors"
+                            title="Banir"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -476,6 +579,50 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
                 <p className="text-xs text-discordex-text-secondary/50 italic">Nenhum membro encontrado.</p>
               )}
             </div>
+          </div>
+        )}
+
+        {tab === 'bans' && canBanMembers && (
+          <div className="max-w-2xl space-y-4">
+            <div>
+              <h2 className="text-xl font-bold text-discordex-text-primary">Banimentos</h2>
+              <p className="text-xs text-discordex-text-secondary mt-1">
+                Pessoas impedidas de entrar neste grupo.
+              </p>
+            </div>
+
+            {bansLoading ? (
+              <p className="text-xs text-discordex-text-secondary/50 italic">Carregando banimentos...</p>
+            ) : bans.length === 0 ? (
+              <p className="text-xs text-discordex-text-secondary/50 italic">Nenhum usuario banido.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {bans.map((ban) => (
+                  <div key={ban.id} className="flex items-center gap-3 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl">
+                    <img
+                      src={ban.profile.avatar_url || `https://ui-avatars.com/api/?background=ED4245&color=fff&bold=true&name=${encodeURIComponent(ban.profile.display_name || ban.profile.username)}`}
+                      alt={ban.profile.display_name}
+                      className="w-9 h-9 rounded-full object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-xs font-bold text-discordex-text-primary truncate">{ban.profile.display_name}</span>
+                      <span className="block text-[10px] text-discordex-text-secondary truncate">
+                        @{ban.profile.username} â€¢ {new Date(ban.created_at).toLocaleDateString('pt-BR')}
+                      </span>
+                      {ban.reason && (
+                        <span className="block text-[10px] text-discordex-text-secondary/70 truncate">Motivo: {ban.reason}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleUnban(ban)}
+                      className="px-3 py-2 rounded-lg text-xs font-semibold text-discordex-text-primary bg-discordex-surface hover:bg-discordex-hover border border-discordex-border transition-colors"
+                    >
+                      Desbanir
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

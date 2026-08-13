@@ -22,6 +22,7 @@ import {
   setChannelRolePermission as setChannelRolePermissionRpc,
   setMemberDeafened as setMemberDeafenedRpc,
   setMemberMuted as setMemberMutedRpc,
+  timeoutMember as timeoutMemberRpc,
   updateRole as updateRoleRpc,
 } from '../services/roles';
 import { VoiceCallEngine, type CallParticipantInfo } from '../lib/webrtcCall';
@@ -103,6 +104,7 @@ export interface ServerMember {
   userId: string;
   nickname: string | null;
   joinedAt: string;
+  timeoutUntil: string | null;
   profile: User;
   roles: { id: string; name: string; color: string; position: number; permissions: number }[];
 }
@@ -201,6 +203,7 @@ interface AppContextType {
   demoteMember: (serverId: string, targetId: string, roleId: string) => Promise<boolean>;
   kickMember: (serverId: string, targetId: string) => Promise<boolean>;
   banMember: (serverId: string, targetId: string) => Promise<boolean>;
+  timeoutMember: (serverId: string, targetId: string, minutes: number) => Promise<boolean>;
   disconnectMemberFromCall: (serverId: string, targetId: string, channelId: string) => Promise<boolean>;
   moveMemberBetweenChannels: (serverId: string, targetId: string, fromChannelId: string, toChannelId: string) => Promise<boolean>;
   setMemberMuted: (serverId: string, targetId: string, muted: boolean) => Promise<boolean>;
@@ -476,6 +479,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userId: member.user_id,
       nickname: member.nickname,
       joinedAt: member.joined_at,
+      timeoutUntil: member.timeout_until,
       profile: toUser(member.profile),
       roles: member.roles,
     }));
@@ -560,6 +564,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const banMember = (serverId: string, targetId: string) =>
     runAction(() => banMemberRpc(serverId, targetId), 'Membro banido do grupo.');
+
+  const timeoutMember = (serverId: string, targetId: string, minutes: number) =>
+    runAction(() => timeoutMemberRpc(serverId, targetId, minutes), 'Membro castigado com timeout.');
 
   const disconnectMemberFromCall = (serverId: string, targetId: string, channelId: string) =>
     runAction(() => disconnectMemberRpc(serverId, targetId, channelId), 'Membro desconectado da call.');
@@ -1481,6 +1488,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       demoteMember,
       kickMember,
       banMember,
+      timeoutMember,
       disconnectMemberFromCall,
       moveMemberBetweenChannels,
       setMemberMuted,

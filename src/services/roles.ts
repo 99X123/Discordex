@@ -153,6 +153,16 @@ export async function banMember(serverId: string, targetId: string): Promise<Rpc
   return parseResult(data);
 }
 
+export async function timeoutMember(serverId: string, targetId: string, minutes: number): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc('timeout_member', {
+    p_server_id: serverId,
+    p_target_id: targetId,
+    p_minutes: minutes,
+  });
+  if (error) return { success: false, error: error.message };
+  return parseResult(data);
+}
+
 export async function disconnectMember(
   serverId: string,
   targetId: string,

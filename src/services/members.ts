@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+type ServerBanRow = Database['public']['Tables']['server_bans']['Row'];
 
 export interface MemberRole {
   id: string;
@@ -20,6 +21,11 @@ export interface ServerMemberWithProfile {
   timeout_until: string | null;
   profile: ProfileRow;
   roles: MemberRole[];
+}
+
+export interface ServerBanWithProfile extends ServerBanRow {
+  profile: ProfileRow;
+  bannedByProfile: ProfileRow | null;
 }
 
 export async function getServerMembersWithRoles(serverId: string): Promise<ServerMemberWithProfile[]> {
@@ -67,4 +73,33 @@ export async function getServerMembersWithRoles(serverId: string): Promise<Serve
       profile: member.profiles as ProfileRow,
       roles: (roleByUser.get(member.user_id as string) || []).sort((a, b) => b.position - a.position),
     }));
+}
+
+export async function getServerBans(serverId: string): Promise<ServerBanWithProfile[]> {
+  const { data, error } = await supabase
+    .from('server_bans')
+    .select('*, profiles:user_id(*), banned_by_profile:banned_by(*)')
+    .eq('server_id', serverId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+
+  return (data as (ServerBanRow & { profiles: ProfileRow | null; banned_by_profile: ProfileRow | null })[])
+    .filter((ban) => ban.profiles)
+    .map((ban) => ({
+      ...ban,
+      profile: ban.profiles as ProfileRow,
+      bannedByProfile: ban.banned_by_profile,
+    }));
+}
+
+export async function unbanMember(serverId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('server_bans')
+    .delete()
+    .eq('server_id', serverId)
+    .eq('user_id', userId);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }
