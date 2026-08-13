@@ -1,16 +1,17 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Tooltip } from './SharedUI';
+import { Tooltip, TransmitMeter } from './SharedUI';
 import { useContextMenu } from './ContextMenu';
 import { buildServerMenu } from '../lib/contextActions';
-import { Compass, Plus, Settings } from 'lucide-react';
+import { Plus, Compass, Gear } from '@phosphor-icons/react';
+import { connectionLabel } from '../lib/station';
 
 export const SidebarServers: React.FC = () => {
   const app = useApp();
-  const { 
-    servers, 
-    activeServerId, 
-    setActiveServerId, 
+  const {
+    servers,
+    activeServerId,
+    setActiveServerId,
     setActiveChannelId,
     openModal,
     openSettings,
@@ -31,57 +32,57 @@ export const SidebarServers: React.FC = () => {
     }
   };
 
+  const connectionVUState = connectionState === 'online' ? 'live' : connectionState === 'connecting' || connectionState === 'reconnecting' ? 'scan' : 'idle';
+
   return (
-    <div className="w-[72px] bg-discordex-bg flex flex-col items-center py-3 border-r border-discordex-border/40 shrink-0 h-full justify-between">
+    <div className="w-[76px] bg-signal-bg flex flex-col items-center py-3 border-r border-signal-border/40 shrink-0 h-full justify-between">
       {/* Upper part */}
       <div className="flex flex-col items-center gap-2.5 w-full">
-        {/* Discordex Logo / Home button */}
+        {/* Estação padrão (Home / Rede de contatos) */}
         <Tooltip content="Discordex Home" position="right">
-          <button 
+          <button
             onClick={() => handleSelectServer(null)}
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 relative group overflow-hidden ${
-              activeServerId === null 
-                ? 'bg-primary text-white rounded-[14px]' 
-                : 'bg-discordex-surface text-primary hover:bg-primary hover:text-white hover:rounded-[14px]'
+            className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 group overflow-hidden ${
+              activeServerId === null
+                ? 'bg-brass text-signal-bg border border-brass'
+                : 'bg-signal-surface text-brass border border-signal-border hover:border-brass/40'
             }`}
           >
-            {/* Active Server indicator */}
-            {activeServerId === null && (
-              <div className="absolute left-0 w-1 h-5 bg-white rounded-r-full" />
-            )}
-            <span className="font-black tracking-wider text-[11px]">DX</span>
+            {activeServerId === null && <span className="dial-tick" style={{ transform: 'rotate(45deg)' }} />}
+            <span className="font-display font-bold tracking-tight text-[11px]">DX</span>
           </button>
         </Tooltip>
 
-        <div className="w-8 h-[2px] bg-discordex-border rounded-full my-1" />
+        <div className="w-8 h-[2px] bg-signal-border rounded-full my-1" />
 
-        {/* Server Items */}
+        {/* Estações (servidores) */}
         <div className="flex flex-col items-center gap-2 w-full overflow-y-auto max-h-[calc(100vh-320px)] no-scrollbar">
           {servers.map(server => {
             const isActive = activeServerId === server.id;
-            
+
             return (
               <Tooltip key={server.id} content={server.name} position="right">
                 <button
                   onClick={() => handleSelectServer(server.id)}
                   onContextMenu={(event) => openMenu(event, buildServerMenu(app, { server }))}
-                  className={`w-12 h-12 flex items-center justify-center transition-all duration-200 relative group overflow-hidden ${
-                    isActive 
-                      ? 'bg-primary text-white rounded-[14px]' 
-                      : 'bg-discordex-surface text-discordex-text-secondary hover:bg-primary hover:text-white hover:rounded-[14px]'
+                  className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 group overflow-hidden ${
+                    isActive
+                      ? 'bg-signal-surface text-brass border border-brass/50 shadow-brass'
+                      : 'bg-signal-surface text-signal-text-secondary border border-signal-border hover:text-signal-text-primary hover:border-brass/30'
                   }`}
                 >
-                  {/* Left indicator pill */}
-                  <div className={`absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200 ${
-                    isActive ? 'h-8' : 'h-2 scale-0 group-hover:scale-100 group-hover:h-5'
-                  }`} />
-                  
-                  {/* Server Icon/Initials */}
+                  {/* Tick do dial — ponteiro de sintonia */}
+                  <span
+                    className={`dial-tick ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-60'}`}
+                    style={{ transform: `rotate(${isActive ? 45 : 110}deg)` }}
+                  />
+
+                  {/* Ícone/Iniciais da estação */}
                   {server.iconUrl ? (
                     <img
                       src={server.iconUrl}
                       alt={server.name}
-                      className="w-full h-full object-cover rounded-[14px] select-none"
+                      className="w-full h-full object-cover rounded-full select-none"
                       onError={(event) => {
                         (event.currentTarget as HTMLImageElement).style.display = 'none';
                       }}
@@ -90,13 +91,13 @@ export const SidebarServers: React.FC = () => {
                     <span className="font-bold text-sm select-none">{server.icon}</span>
                   )}
 
-                  {/* Red notification dot */}
+                  {/* Badge de notificação — âmbar */}
                   {server.unreadCount && server.unreadCount > 0 ? (
-                    <div className="absolute bottom-1 right-1 bg-primary text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-discordex-bg">
+                    <div className="absolute bottom-0.5 right-0.5 bg-brass text-signal-bg text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-signal-bg">
                       {server.unreadCount}
                     </div>
                   ) : server.hasNotification ? (
-                    <div className="absolute bottom-1.5 right-1.5 bg-primary w-2.5 h-2.5 rounded-full border-2 border-discordex-bg" />
+                    <div className="absolute bottom-1.5 right-1.5 bg-brass w-2.5 h-2.5 rounded-full border-2 border-signal-bg" />
                   ) : null}
                 </button>
               </Tooltip>
@@ -104,49 +105,44 @@ export const SidebarServers: React.FC = () => {
           })}
         </div>
 
-        {/* Action icons */}
-        <Tooltip content="Adicionar Servidor" position="right">
-          <button 
+        {/* Ações */}
+        <Tooltip content="Adicionar estação" position="right">
+          <button
             onClick={() => openModal('create-server')}
-            className="w-12 h-12 rounded-2xl bg-discordex-surface text-discordex-text-secondary hover:bg-discordex-success hover:text-white hover:rounded-[14px] flex items-center justify-center transition-all duration-200"
+            className="w-12 h-12 rounded-full bg-signal-surface text-signal-text-secondary border border-signal-border hover:bg-signal-success hover:text-signal-bg hover:border-signal-success flex items-center justify-center transition-all duration-200"
           >
             <Plus className="w-5 h-5" />
           </button>
         </Tooltip>
 
-        <Tooltip content="Entrar via Convite" position="right">
-          <button 
+        <Tooltip content="Entrar via convite" position="right">
+          <button
             onClick={() => openModal('join-server')}
-            className="w-12 h-12 rounded-2xl bg-discordex-surface text-discordex-text-secondary hover:bg-primary hover:text-white hover:rounded-[14px] flex items-center justify-center transition-all duration-200"
+            className="w-12 h-12 rounded-full bg-signal-surface text-signal-text-secondary border border-signal-border hover:bg-brass hover:text-signal-bg hover:border-brass flex items-center justify-center transition-all duration-200"
           >
             <Compass className="w-5 h-5" />
           </button>
         </Tooltip>
       </div>
 
-      {/* Bottom control part */}
+      {/* Controles inferiores */}
       <div className="flex flex-col items-center gap-3">
-        {/* Connection status indicator */}
-        <Tooltip content={`Conexão: ${connectionState}`} position="right">
+        {/* Indicador de conexão — mini VU de 3 barras */}
+        <Tooltip content={`Conexão: ${connectionLabel(connectionState)}`} position="right">
           <button
             type="button"
-            className="w-8 h-8 rounded-full flex items-center justify-center bg-discordex-surface border border-discordex-border hover:border-primary transition-colors"
+            className="w-10 h-9 rounded-md flex items-center justify-center bg-signal-surface border border-signal-border hover:border-brass/40 transition-colors"
           >
-            <div className={`w-3.5 h-3.5 rounded-full ${
-              connectionState === 'online' ? 'bg-discordex-success' :
-              connectionState === 'connecting' ? 'bg-discordex-warning animate-pulse' :
-              connectionState === 'reconnecting' ? 'bg-discordex-warning animate-spin border-2 border-dashed border-discordex-bg' :
-              'bg-discordex-danger'
-            }`} />
+            <TransmitMeter bars={3} state={connectionVUState} />
           </button>
         </Tooltip>
 
         <Tooltip content="Configurações Gerais" position="right">
-          <button 
+          <button
             onClick={() => openSettings('Minha conta')}
-            className="w-10 h-10 rounded-xl bg-discordex-surface text-discordex-text-secondary hover:text-discordex-text-primary flex items-center justify-center transition-colors border border-discordex-border"
+            className="w-10 h-10 rounded-full bg-signal-surface text-signal-text-secondary border border-signal-border hover:text-signal-text-primary hover:border-brass/40 flex items-center justify-center transition-colors"
           >
-            <Settings className="w-4.5 h-4.5" />
+            <Gear className="w-4.5 h-4.5" />
           </button>
         </Tooltip>
       </div>

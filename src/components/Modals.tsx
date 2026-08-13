@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Server } from '../context/AppContext';
-import { X, Shield, Calendar, MessageSquare, Phone, Hash, Volume2, Lock, LockOpen, Save } from 'lucide-react';
+import { X, Shield, CalendarBlank, ChatCircleDots, Phone, Hash, Waveform, Lock, LockOpen, FloppyDisk } from '@phosphor-icons/react';
 
 export const Modals: React.FC = () => {
 const {
@@ -157,149 +157,140 @@ const {
     closeModal();
   };
 
+  const inputCls = "w-full px-4 py-3 bg-signal-bg border border-signal-border rounded-md text-signal-text-primary placeholder:text-signal-text-secondary/40 focus:outline-none focus:border-brass transition-colors text-sm";
+  const labelCls = "block text-xs font-bold text-signal-text-secondary uppercase tracking-wider mb-2";
+  const cancelBtn = "px-5 py-2.5 rounded-md text-sm font-semibold text-signal-text-primary hover:bg-signal-hover transition-colors";
+  const submitBtn = "px-5 py-2.5 rounded-md text-sm font-bold bg-brass hover:bg-brass-hover text-signal-bg transition-colors";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div 
-        className={`w-full ${activeModal === 'edit-channel' ? 'max-w-2xl' : 'max-w-md'} bg-discordex-secondary border border-discordex-border rounded-2xl overflow-hidden shadow-2xl animate-slide-up`}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+      <div
+        className={`w-full ${activeModal === 'edit-channel' ? 'max-w-2xl' : 'max-w-md'} bg-signal-secondary border border-signal-border panel-cut-lg overflow-hidden shadow-float-lg animate-slide-up`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Create Server Modal */}
+        {/* Modal: Criar servidor */}
         {activeModal === 'create-server' && (
           <form onSubmit={handleCreateServer}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-discordex-text-primary">Criar seu servidor</h3>
-                <button type="button" onClick={closeModal} className="text-discordex-text-secondary hover:text-discordex-text-primary">
+                <h3 className="text-xl font-display font-bold text-signal-text-primary">Criar sua estação</h3>
+                <button type="button" onClick={closeModal} className="text-signal-text-secondary hover:text-signal-text-primary">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-xs text-discordex-text-secondary mb-6">
-                Seu servidor é onde você e seus amigos se reúnem. Crie o seu e comece a conversar.
+              <p className="text-xs text-signal-text-secondary mb-6">
+                Sua estação é onde você e seus amigos se reúnem. Crie a sua e comece a transmitir.
               </p>
-              
+
               <div className="mb-6">
-                <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
-                  Nome do servidor
+                <label className={labelCls}>
+                  Nome da estação
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={serverName}
                   onChange={(e) => setServerName(e.target.value)}
-                  placeholder="Meu Incrível Servidor" 
-                  className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors text-sm"
+                  placeholder="Meu Incrível Servidor"
+                  className={inputCls}
                   required
                   autoFocus
                 />
               </div>
             </div>
-            <div className="px-6 py-4 bg-discordex-surface flex justify-end gap-3 border-t border-discordex-border">
-              <button 
-                type="button" 
-                onClick={closeModal} 
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-discordex-text-primary hover:bg-discordex-hover transition-colors"
-              >
+            <div className="px-6 py-4 bg-signal-surface flex justify-end gap-3 border-t border-signal-border">
+              <button type="button" onClick={closeModal} className={cancelBtn}>
                 Cancelar
               </button>
-              <button 
-                type="submit" 
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary hover:bg-primary-hover text-white transition-colors"
-              >
+              <button type="submit" className={submitBtn}>
                 Criar
               </button>
             </div>
           </form>
         )}
 
-        {/* Join Server Modal */}
+        {/* Modal: Entrar em um servidor */}
         {activeModal === 'join-server' && (
           <form onSubmit={handleJoinServer}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-discordex-text-primary">Entrar em um servidor</h3>
-                <button type="button" onClick={closeModal} className="text-discordex-text-secondary hover:text-discordex-text-primary">
+                <h3 className="text-xl font-display font-bold text-signal-text-primary">Sintonizar uma estação</h3>
+                <button type="button" onClick={closeModal} className="text-signal-text-secondary hover:text-signal-text-primary">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-xs text-discordex-text-secondary mb-6">
+              <p className="text-xs text-signal-text-secondary mb-6">
                 Insira um código de convite ou nome para se juntar a um servidor existente.
               </p>
-              
+
               <div className="mb-6">
-                <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                <label className={labelCls}>
                   Código do convite
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="https://discordex.gg/h7xK9s" 
-                  className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors text-sm"
+                  placeholder="https://discordex.gg/h7xK9s"
+                  className={inputCls}
                   required
                   autoFocus
                 />
               </div>
             </div>
-            <div className="px-6 py-4 bg-discordex-surface flex justify-end gap-3 border-t border-discordex-border">
-              <button 
-                type="button" 
-                onClick={closeModal} 
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-discordex-text-primary hover:bg-discordex-hover transition-colors"
-              >
+            <div className="px-6 py-4 bg-signal-surface flex justify-end gap-3 border-t border-signal-border">
+              <button type="button" onClick={closeModal} className={cancelBtn}>
                 Cancelar
               </button>
-              <button 
-                type="submit" 
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary hover:bg-primary-hover text-white transition-colors"
-              >
+              <button type="submit" className={submitBtn}>
                 Entrar
               </button>
             </div>
           </form>
         )}
 
-        {/* Create Channel Modal */}
+        {/* Modal: Criar canal */}
         {activeModal === 'create-channel' && (
           <form onSubmit={handleCreateChannel}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-discordex-text-primary">Criar canal</h3>
-                <button type="button" onClick={closeModal} className="text-discordex-text-secondary hover:text-discordex-text-primary">
+                <h3 className="text-xl font-display font-bold text-signal-text-primary">Criar canal</h3>
+                <button type="button" onClick={closeModal} className="text-signal-text-secondary hover:text-signal-text-primary">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="mb-5">
-                <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                <label className={labelCls}>
                   Tipo de canal
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setChannelType('text')}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-colors ${channelType === 'text' ? 'border-primary bg-primary/10' : 'border-discordex-border bg-discordex-bg hover:bg-discordex-surface'}`}
+                    className={`p-3 rounded-md border flex flex-col items-center gap-1.5 transition-colors ${channelType === 'text' ? 'border-brass bg-brass/10' : 'border-signal-border bg-signal-bg hover:bg-signal-surface'}`}
                   >
-                    <span className="text-lg">#</span>
-                    <span className="text-xs font-semibold text-discordex-text-primary">Texto</span>
+                    <Hash className="w-5 h-5 text-signal-text-primary" />
+                    <span className="text-xs font-semibold text-signal-text-primary">Texto</span>
                   </button>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setChannelType('voice')}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-colors ${channelType === 'voice' ? 'border-primary bg-primary/10' : 'border-discordex-border bg-discordex-bg hover:bg-discordex-surface'}`}
+                    className={`p-3 rounded-md border flex flex-col items-center gap-1.5 transition-colors ${channelType === 'voice' ? 'border-brass bg-brass/10' : 'border-signal-border bg-signal-bg hover:bg-signal-surface'}`}
                   >
-                    <span className="text-sm">🔊</span>
-                    <span className="text-xs font-semibold text-discordex-text-primary">Voz</span>
+                    <Waveform className="w-5 h-5 text-signal-text-primary" />
+                    <span className="text-xs font-semibold text-signal-text-primary">Voz</span>
                   </button>
                 </div>
               </div>
 
               <div className="mb-5">
-                <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                <label className={labelCls}>
                   Categoria
                 </label>
-                <select 
+                <select
                   value={channelParentId ?? ''}
                   onChange={(e) => setChannelParentId(e.target.value || null)}
-                  className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary focus:outline-none focus:border-primary text-sm"
+                  className={inputCls}
                 >
                   <option value="">Nenhuma</option>
                   {(activeServer?.categories || []).map((category) => (
@@ -309,104 +300,90 @@ const {
               </div>
 
               <div className="mb-2">
-                <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                <label className={labelCls}>
                   Nome do canal
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
-                  placeholder="novo-canal" 
-                  className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors text-sm"
+                  placeholder="novo-canal"
+                  className={inputCls}
                   required
                   autoFocus
                 />
               </div>
             </div>
-            <div className="px-6 py-4 bg-discordex-surface flex justify-end gap-3 border-t border-discordex-border">
-              <button 
-                type="button" 
-                onClick={closeModal} 
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-discordex-text-primary hover:bg-discordex-hover transition-colors"
-              >
+            <div className="px-6 py-4 bg-signal-surface flex justify-end gap-3 border-t border-signal-border">
+              <button type="button" onClick={closeModal} className={cancelBtn}>
                 Cancelar
               </button>
-              <button 
-                type="submit" 
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary hover:bg-primary-hover text-white transition-colors"
-              >
+              <button type="submit" className={submitBtn}>
                 Criar
               </button>
             </div>
           </form>
         )}
 
-        {/* Create Category Modal */}
+        {/* Modal: Criar categoria */}
         {activeModal === 'create-category' && (
           <form onSubmit={handleCreateCategory}>
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-discordex-text-primary">Criar categoria</h3>
-                <button type="button" onClick={closeModal} className="text-discordex-text-secondary hover:text-discordex-text-primary">
+                <h3 className="text-xl font-display font-bold text-signal-text-primary">Criar categoria</h3>
+                <button type="button" onClick={closeModal} className="text-signal-text-secondary hover:text-signal-text-primary">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="mb-2">
-                <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                <label className={labelCls}>
                   Nome da categoria
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
-                  placeholder="Ex.: Canais de Texto" 
-                  className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors text-sm"
+                  placeholder="Ex.: Canais de Texto"
+                  className={inputCls}
                   required
                   autoFocus
                 />
               </div>
             </div>
-            <div className="px-6 py-4 bg-discordex-surface flex justify-end gap-3 border-t border-discordex-border">
-              <button 
-                type="button" 
-                onClick={closeModal} 
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-discordex-text-primary hover:bg-discordex-hover transition-colors"
-              >
+            <div className="px-6 py-4 bg-signal-surface flex justify-end gap-3 border-t border-signal-border">
+              <button type="button" onClick={closeModal} className={cancelBtn}>
                 Cancelar
               </button>
-              <button 
-                type="submit" 
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary hover:bg-primary-hover text-white transition-colors"
-              >
+              <button type="submit" className={submitBtn}>
                 Criar
               </button>
             </div>
           </form>
         )}
 
-        {/* Edit Channel Modal */}
+        {/* Modal: Editar canal */}
         {activeModal === 'edit-channel' && editChannel && (
           <form onSubmit={handleSaveEditChannel} className="max-h-[85vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-discordex-text-primary flex items-center gap-2">
+                <h3 className="text-xl font-display font-bold text-signal-text-primary flex items-center gap-2">
                   {editChannel.type === 'voice'
-                    ? <Volume2 className="w-5 h-5 text-discordex-text-secondary" />
-                    : <Hash className="w-5 h-5 text-discordex-text-secondary" />}
+                    ? <Waveform className="w-5 h-5 text-signal-text-secondary" />
+                    : <Hash className="w-5 h-5 text-signal-text-secondary" />}
                   Editar canal
                 </h3>
-                <button type="button" onClick={closeModal} className="text-discordex-text-secondary hover:text-discordex-text-primary">
+                <button type="button" onClick={closeModal} className="text-signal-text-secondary hover:text-signal-text-primary">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-xs text-discordex-text-secondary mb-6">
+              <p className="text-xs text-signal-text-secondary mb-6">
                 Edite as informações, a categoria e o acesso de cada cargo ao canal.
               </p>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                  <label className={labelCls}>
                     Nome do canal
                   </label>
                   <input
@@ -414,14 +391,14 @@ const {
                     value={editChannelName}
                     onChange={(e) => setEditChannelName(e.target.value)}
                     placeholder="nome-do-canal"
-                    className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors text-sm"
+                    className={inputCls}
                     required
                     autoFocus
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                  <label className={labelCls}>
                     Descricao
                   </label>
                   <input
@@ -429,18 +406,18 @@ const {
                     value={editChannelDesc}
                     onChange={(e) => setEditChannelDesc(e.target.value)}
                     placeholder="O que este canal e para?"
-                    className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors text-sm"
+                    className={inputCls}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                  <label className={labelCls}>
                     Categoria
                   </label>
                   <select
                     value={editChannelParentId ?? ''}
                     onChange={(e) => setEditChannelParentId(e.target.value || null)}
-                    className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-discordex-text-primary focus:outline-none focus:border-primary text-sm"
+                    className={inputCls}
                   >
                     <option value="">Nenhuma</option>
                     {(activeServer?.categories || []).map((category) => (
@@ -449,50 +426,50 @@ const {
                   </select>
                 </div>
 
-                <div className="bg-discordex-bg border border-discordex-border rounded-2xl p-4 space-y-3">
+                <div className="bg-signal-bg border border-signal-border rounded-md p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {editChannelPrivate
-                        ? <Lock className="w-4 h-4 text-discordex-danger" />
-                        : <LockOpen className="w-4 h-4 text-discordex-success" />}
-                      <span className="text-xs font-bold text-discordex-text-primary">
+                        ? <Lock className="w-4 h-4 text-signal-danger" />
+                        : <LockOpen className="w-4 h-4 text-signal-success" />}
+                      <span className="text-xs font-bold text-signal-text-primary">
                         {editChannelPrivate ? 'Canal privado' : 'Canal publico'}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={toggleEditChannelPrivacy}
-                      className={`w-10 h-6 rounded-full p-1 transition-colors ${editChannelPrivate ? 'bg-discordex-danger' : 'bg-discordex-success'}`}
+                      className={`w-10 h-6 rounded-full p-1 transition-colors ${editChannelPrivate ? 'bg-signal-danger' : 'bg-signal-success'}`}
                     >
                       <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${editChannelPrivate ? 'translate-x-4' : 'translate-x-0'}`} />
                     </button>
                   </div>
-                  <p className="text-[10px] text-discordex-text-secondary leading-relaxed">
+                  <p className="text-[10px] text-signal-text-secondary leading-relaxed">
                     {editChannelPrivate
                       ? 'Somente cargos com "Ver" ativado enxergam este canal. Cargos novos entram bloqueados.'
                       : 'Todos os membros enxergam e podem usar este canal. As restricoes abaixo removem o acesso de cargos especificos.'}
                   </p>
 
-                  <div className="h-px bg-discordex-border" />
+                  <div className="h-px bg-signal-border" />
 
                   <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                     {(serverRoles[activeServerId ?? ''] || []).map((role) => {
                       const view = roleCanView(role.id);
                       const send = roleCanSend(role.id);
                       return (
-                        <div key={role.id} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-discordex-secondary border border-discordex-border/60">
+                        <div key={role.id} className="flex items-center gap-3 px-3 py-2 rounded-md bg-signal-secondary border border-signal-border/60">
                           <span
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: role.color }}
                           />
-                          <span className="flex-1 min-w-0 text-xs font-semibold text-discordex-text-primary truncate">
+                          <span className="flex-1 min-w-0 text-xs font-semibold text-signal-text-primary truncate">
                             {role.name}
                           </span>
                           <button
                             type="button"
                             onClick={() => toggleEditRoleView(role.id)}
-                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
-                              view ? 'bg-discordex-success/15 text-discordex-success' : 'bg-discordex-danger/15 text-discordex-danger'
+                            className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-colors ${
+                              view ? 'bg-signal-success/15 text-signal-success' : 'bg-signal-danger/15 text-signal-danger'
                             }`}
                           >
                             {view ? 'Ver' : 'Oculto'}
@@ -501,8 +478,8 @@ const {
                             <button
                               type="button"
                               onClick={() => toggleEditRoleSend(role.id)}
-                              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
-                                send ? 'bg-discordex-success/15 text-discordex-success' : 'bg-discordex-danger/15 text-discordex-danger'
+                              className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-colors ${
+                                send ? 'bg-signal-success/15 text-signal-success' : 'bg-signal-danger/15 text-signal-danger'
                               }`}
                             >
                               {send ? 'Enviar' : 'Sem enviar'}
@@ -515,77 +492,85 @@ const {
                 </div>
               </div>
             </div>
-            <div className="px-6 py-4 bg-discordex-surface flex justify-end gap-3 border-t border-discordex-border">
+            <div className="px-6 py-4 bg-signal-surface flex justify-end gap-3 border-t border-signal-border">
               <button
                 type="button"
                 onClick={closeModal}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-discordex-text-primary hover:bg-discordex-hover transition-colors"
+                className={cancelBtn}
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary hover:bg-primary-hover text-white inline-flex items-center gap-2 transition-colors"
+                className={`${submitBtn} inline-flex items-center gap-2`}
               >
-                <Save className="w-4 h-4" />
+                <FloppyDisk className="w-4 h-4" />
                 Salvar
               </button>
             </div>
           </form>
         )}
 
-        {/* Profile Details Modal */}
+        {/* Modal: Perfil */}
         {activeModal === 'profile-view' && selectedProfileUser && (
-          <div className="overflow-hidden bg-discordex-bg">
-            {/* Header Banner */}
-            <div className="h-28 bg-gradient-to-r from-primary to-primary-dark relative">
-              <button 
-                onClick={closeModal} 
+          <div className="overflow-hidden bg-signal-bg">
+            {/* Banner */}
+            <div className={`relative ${selectedProfileUser.banner ? 'bg-signal-surface' : 'bg-gradient-to-r from-brass-dark to-brass'}`}>
+              {selectedProfileUser.banner ? (
+                <img
+                  src={selectedProfileUser.banner}
+                  alt="Banner"
+                  className="w-full h-28 object-cover"
+                  onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                />
+              ) : (
+                <div className="h-28" />
+              )}
+              <button
+                onClick={closeModal}
                 className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 p-2 rounded-full text-white transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Profile Content */}
+            {/* Conteúdo */}
             <div className="px-6 pb-6 relative">
-              {/* Avatar position */}
               <div className="absolute -top-12 left-6">
                 <div className="relative">
-                  <img 
-                    src={selectedProfileUser.avatar} 
-                    alt={selectedProfileUser.displayName} 
-                    className="w-24 h-24 rounded-full border-4 border-discordex-bg object-cover"
+                  <img
+                    src={selectedProfileUser.avatar}
+                    alt={selectedProfileUser.displayName}
+                    className="w-24 h-24 rounded-full border-4 border-signal-bg object-cover"
                   />
-                  <div className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-4 border-discordex-bg ${
-                    selectedProfileUser.status === 'online' ? 'bg-discordex-success' :
-                    selectedProfileUser.status === 'idle' ? 'bg-discordex-warning' :
-                    selectedProfileUser.status === 'dnd' ? 'bg-discordex-danger' :
-                    'bg-discordex-text-secondary'
+                  <div className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-4 border-signal-bg ${
+                    selectedProfileUser.status === 'online' ? 'bg-signal-success shadow-[0_0_6px_rgba(79,178,134,0.7)]' :
+                    selectedProfileUser.status === 'idle' ? 'bg-signal-warning shadow-[0_0_6px_rgba(226,133,59,0.7)]' :
+                    selectedProfileUser.status === 'dnd' ? 'bg-signal-danger shadow-[0_0_6px_rgba(217,96,75,0.7)]' :
+                    'bg-signal-text-secondary'
                   }`} />
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex justify-end pt-3 gap-2">
                 {selectedProfileUser.id !== 'me' && (
                   <>
-                    <button 
+                    <button
                       onClick={() => {
                         setActiveServerId(null);
                         setActiveDmId(selectedProfileUser.id);
                         closeModal();
                       }}
-                      className="p-2.5 bg-discordex-surface hover:bg-discordex-hover text-discordex-text-primary rounded-xl border border-discordex-border transition-colors tooltip-trigger"
+                      className="p-2.5 bg-signal-surface hover:bg-signal-hover text-signal-text-primary rounded-md border border-signal-border transition-colors tooltip-trigger"
                     >
-                      <MessageSquare className="w-4.5 h-4.5" />
+                      <ChatCircleDots className="w-4.5 h-4.5" />
                     </button>
-                    <button 
+                    <button
                       onClick={() => {
                         startCall('voice', selectedProfileUser.id, selectedProfileUser.displayName, false, selectedProfileUser.avatar);
                         closeModal();
                       }}
-                      className="px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-medium flex items-center gap-2 transition-colors"
+                      className="px-4 py-2.5 bg-brass hover:bg-brass-hover text-signal-bg rounded-md text-sm font-bold flex items-center gap-2 transition-colors"
                     >
                       <Phone className="w-4 h-4" /> Chamada
                     </button>
@@ -593,36 +578,32 @@ const {
                 )}
               </div>
 
-              {/* User details */}
               <div className="mt-6">
-                <h2 className="text-xl font-bold text-discordex-text-primary flex items-center gap-2">
+                <h2 className="text-xl font-display font-bold text-signal-text-primary flex items-center gap-2">
                   {selectedProfileUser.displayName}
                 </h2>
-                <span className="text-xs text-discordex-text-secondary font-mono">@{selectedProfileUser.username}</span>
+                <span className="text-xs text-signal-text-secondary font-mono">@{selectedProfileUser.username}</span>
 
-                {/* Role badge */}
                 {selectedProfileUser.role && (
-                  <div className="mt-3 flex items-center gap-1.5 px-3 py-1 bg-discordex-surface border border-discordex-border rounded-lg w-fit text-xs font-semibold text-discordex-text-primary">
-                    <Shield className="w-3.5 h-3.5 text-primary" />
+                  <div className="mt-3 flex items-center gap-1.5 px-3 py-1 bg-signal-surface border border-signal-border rounded-md w-fit text-xs font-semibold text-signal-text-primary">
+                    <Shield className="w-3.5 h-3.5 text-brass" />
                     {selectedProfileUser.role}
                   </div>
                 )}
 
-                <div className="h-px bg-discordex-border my-4" />
+                <div className="h-px bg-signal-border my-4" />
 
-                {/* Bio */}
                 <div className="mb-4">
-                  <span className="block text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider mb-1.5">
+                  <span className="block text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider mb-1.5">
                     Sobre mim
                   </span>
-                  <p className="text-sm text-discordex-text-secondary leading-relaxed">
+                  <p className="text-sm text-signal-text-secondary leading-relaxed">
                     {selectedProfileUser.bio || 'Sem bio disponível.'}
                   </p>
                 </div>
 
-                {/* Join Date */}
-                <div className="flex items-center gap-2 text-xs text-discordex-text-secondary mt-4 bg-discordex-surface/40 p-2.5 rounded-xl border border-discordex-border/40">
-                  <Calendar className="w-4 h-4 text-primary" />
+                <div className="flex items-center gap-2 text-xs text-signal-text-secondary mt-4 bg-signal-surface/40 p-2.5 rounded-md border border-signal-border/40">
+                  <CalendarBlank className="w-4 h-4 text-brass" />
                   <span>Membro desde {selectedProfileUser.joinedDate || '2026'}</span>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KeyRound, RefreshCw } from 'lucide-react';
+import { Key, ArrowsClockwise } from '@phosphor-icons/react';
 import { supabase } from '../lib/supabase';
 
 interface ResetPasswordPageProps {
@@ -39,28 +39,31 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onComplete
   };
 
   return (
-    <main className="min-h-screen bg-discordex-bg text-discordex-text-primary flex p-6">
-      <section className="m-auto w-full max-w-sm bg-discordex-secondary border border-discordex-border rounded-2xl shadow-2xl overflow-hidden">
-        <div className="p-6 border-b border-discordex-border">
-          <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black tracking-wider mb-5">
+    <main className="min-h-screen bg-signal-bg text-signal-text-primary flex p-6">
+      <section className="m-auto w-full max-w-sm bg-signal-secondary border border-signal-border panel-cut shadow-float-lg overflow-hidden">
+        <div className="p-6 border-b border-signal-border">
+          <div className="w-12 h-12 panel-cut bg-brass text-signal-bg flex items-center justify-center font-display font-bold tracking-tight mb-5 shadow-brass">
             DX
           </div>
-          <h1 className="text-2xl font-black">Redefinir senha</h1>
-          <p className="text-xs text-discordex-text-secondary mt-1">
+          <h1 className="text-2xl font-display font-bold">Redefinir senha</h1>
+          <p className="text-xs text-signal-text-secondary mt-1">
             Digite sua nova senha para entrar novamente.
           </p>
+          <div className="mt-4 text-[10px] font-mono text-signal-text-secondary/50 tracking-widest">
+            SIGNAL://AUTH
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <label className="block space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-discordex-text-secondary">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-signal-text-secondary">
               Nova senha
             </span>
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-sm outline-none focus:border-primary"
+              className="w-full px-4 py-3 bg-signal-bg border border-signal-border rounded-md text-sm outline-none focus:border-brass"
               placeholder="Minimo 6 caracteres"
               minLength={6}
               required
@@ -68,14 +71,14 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onComplete
           </label>
 
           <label className="block space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-discordex-text-secondary">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-signal-text-secondary">
               Confirmar nova senha
             </span>
             <input
               type="password"
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}
-              className="w-full px-4 py-3 bg-discordex-bg border border-discordex-border rounded-xl text-sm outline-none focus:border-primary"
+              className="w-full px-4 py-3 bg-signal-bg border border-signal-border rounded-md text-sm outline-none focus:border-brass"
               placeholder="Repita a nova senha"
               minLength={6}
               required
@@ -83,7 +86,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onComplete
           </label>
 
           {message && (
-            <div className={`text-xs rounded-xl border px-3 py-2 ${message.type === 'error' ? 'border-discordex-danger/30 bg-discordex-danger/10 text-discordex-danger' : 'border-discordex-success/30 bg-discordex-success/10 text-discordex-success'}`}>
+            <div className={`text-xs rounded-md border px-3 py-2 ${message.type === 'error' ? 'border-signal-danger/30 bg-signal-danger/10 text-signal-danger' : 'border-signal-success/30 bg-signal-success/10 text-signal-success'}`}>
               {message.text}
             </div>
           )}
@@ -91,9 +94,9 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onComplete
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+            className="w-full px-4 py-3 rounded-md bg-brass hover:bg-brass-hover disabled:opacity-60 text-signal-bg text-sm font-bold flex items-center justify-center gap-2 transition-colors"
           >
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+            {loading ? <ArrowsClockwise className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
             {loading ? 'Salvando...' : 'Salvar nova senha'}
           </button>
         </form>

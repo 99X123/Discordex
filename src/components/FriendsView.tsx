@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Users, Phone, Video, MessageSquare, Check, X } from 'lucide-react';
+import { Users, Phone, VideoCamera, ChatText, Check, X } from '@phosphor-icons/react';
 import { Tooltip } from './SharedUI';
 
 export const FriendsView: React.FC = () => {
-  const { 
-    friends, 
-    pendingRequests, 
-    setActiveDmId, 
-    startCall, 
+  const {
+    friends,
+    pendingRequests,
+    setActiveDmId,
+    startCall,
     sendFriendRequest,
     respondFriendRequest
   } = useApp();
@@ -31,18 +31,18 @@ export const FriendsView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-discordex-bg flex flex-col h-full select-none">
-      
-      {/* Friends Sub-header navbar */}
-      <div className="h-12 px-5 border-b border-discordex-border flex items-center gap-6 shrink-0">
-        <div className="flex items-center gap-2 text-discordex-text-primary font-bold text-xs">
-          <Users className="w-4 h-4 text-discordex-text-secondary" />
+    <div className="flex-1 bg-signal-bg flex flex-col h-full select-none">
+
+      {/* Sub-header de Amigos */}
+      <div className="h-12 px-5 border-b border-signal-border flex items-center gap-6 shrink-0">
+        <div className="flex items-center gap-2 text-signal-text-primary font-display font-bold text-xs">
+          <Users className="w-4 h-4 text-signal-text-secondary" />
           <span>Amigos</span>
         </div>
 
-        <div className="w-[1px] h-4 bg-discordex-border" />
+        <div className="w-[1px] h-4 bg-signal-border" />
 
-        {/* Tab buttons */}
+        {/* Abas */}
         <div className="flex items-center gap-2.5">
           {[
             { id: 'online', label: 'Disponíveis' },
@@ -52,15 +52,15 @@ export const FriendsView: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === tab.id 
-                  ? 'bg-discordex-surface text-discordex-text-primary' 
-                  : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                activeTab === tab.id
+                  ? 'bg-signal-surface text-signal-text-primary'
+                  : 'text-signal-text-secondary hover:bg-signal-surface/40 hover:text-signal-text-primary'
               }`}
             >
               {tab.label}
               {tab.id === 'pending' && pendingRequests.length > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-primary text-white text-[9px] font-black">
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-brass text-signal-bg text-[9px] font-black">
                   {pendingRequests.length}
                 </span>
               )}
@@ -69,10 +69,10 @@ export const FriendsView: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('add')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'add' 
-                ? 'bg-primary text-white' 
-                : 'bg-discordex-success/10 text-discordex-success hover:bg-discordex-success/20'
+            className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+              activeTab === 'add'
+                ? 'bg-brass text-signal-bg'
+                : 'bg-signal-success/10 text-signal-success hover:bg-signal-success/20'
             }`}
           >
             Adicionar Amigo
@@ -80,30 +80,30 @@ export const FriendsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Friends List panel */}
+      {/* Lista principal */}
       <div className="flex-1 overflow-y-auto p-6">
-        
-        {/* ADD FRIEND TAB VIEW */}
+
+        {/* ABA ADICIONAR */}
         {activeTab === 'add' && (
           <div className="max-w-md space-y-4">
             <div className="space-y-1.5">
-              <h3 className="text-sm font-bold text-discordex-text-primary uppercase tracking-wider">Adicionar Amigo</h3>
-              <p className="text-xs text-discordex-text-secondary">Você pode adicionar amigos com o nome de usuário do Discordex.</p>
+              <h3 className="text-sm font-display font-bold text-signal-text-primary uppercase tracking-wider">Adicionar Amigo</h3>
+              <p className="text-xs text-signal-text-secondary">Você pode adicionar amigos com o nome de usuário do Discordex.</p>
             </div>
-            
+
             <form onSubmit={handleAddFriendSubmit} className="relative">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={friendUsername}
                 onChange={(e) => setFriendUsername(e.target.value)}
-                placeholder="Insira um Nome de Usuário (ex: joao_dev)" 
-                className="w-full px-4 py-3 bg-discordex-secondary border border-discordex-border rounded-xl text-xs text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors pr-24"
+                placeholder="Insira um Nome de Usuário (ex: joao_dev)"
+                className="w-full px-4 py-3 bg-signal-secondary border border-signal-border rounded-md text-xs text-signal-text-primary placeholder:text-signal-text-secondary/40 focus:outline-none focus:border-brass transition-colors pr-24"
                 required
                 autoFocus
               />
-              <button 
+              <button
                 type="submit"
-                className="absolute right-2 top-1.5 bottom-1.5 px-4 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition-colors"
+                className="absolute right-2 top-1.5 bottom-1.5 px-4 bg-brass hover:bg-brass-hover text-signal-bg rounded-md text-xs font-bold transition-colors"
               >
                 Enviar solicitação
               </button>
@@ -111,36 +111,36 @@ export const FriendsView: React.FC = () => {
           </div>
         )}
 
-        {/* PENDING REQUESTS TAB VIEW */}
+        {/* ABA PENDENTES */}
         {activeTab === 'pending' && (
           <div className="space-y-3">
-            <span className="block text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+            <span className="block text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider mb-2 font-mono">
               Solicitações de Amizade — {pendingRequests.length}
             </span>
 
             {pendingRequests.length === 0 ? (
-              <p className="text-xs text-discordex-text-secondary/50 italic">Nenhuma solicitação pendente.</p>
+              <p className="text-xs text-signal-text-secondary/50 italic">Nenhuma solicitação pendente.</p>
             ) : (
               pendingRequests.map(req => (
-                <div key={req.id} className="flex items-center justify-between p-3 bg-discordex-secondary border border-discordex-border rounded-2xl hover:border-discordex-text-secondary/30 transition-all max-w-xl">
+                <div key={req.id} className="flex items-center justify-between p-3 bg-signal-secondary border border-signal-border panel-cut-sm hover:border-signal-text-secondary/30 transition-all max-w-xl">
                   <div className="flex items-center gap-3">
                     <img src={req.avatar} alt={req.displayName} className="w-9 h-9 rounded-full object-cover" />
                     <div>
-                      <span className="block text-xs font-bold text-discordex-text-primary">{req.displayName}</span>
-                      <span className="block text-[9px] text-discordex-text-secondary">@{req.username}</span>
+                      <span className="block text-xs font-bold text-signal-text-primary">{req.displayName}</span>
+                      <span className="block text-[9px] text-signal-text-secondary font-mono">@{req.username}</span>
                     </div>
                   </div>
 
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={() => req.friendshipId && respondFriendRequest(req.friendshipId, 'accepted')}
-                      className="w-8 h-8 rounded-lg bg-discordex-success/10 hover:bg-discordex-success text-discordex-success hover:text-white flex items-center justify-center transition-colors"
+                      className="w-8 h-8 rounded-md bg-signal-success/10 hover:bg-signal-success text-signal-success hover:text-white flex items-center justify-center transition-colors"
                     >
                       <Check className="w-4.5 h-4.5" />
                     </button>
-                    <button 
+                    <button
                       onClick={() => req.friendshipId && respondFriendRequest(req.friendshipId, 'declined')}
-                      className="w-8 h-8 rounded-lg bg-discordex-danger/10 hover:bg-discordex-danger text-discordex-danger hover:text-white flex items-center justify-center transition-colors"
+                      className="w-8 h-8 rounded-md bg-signal-danger/10 hover:bg-signal-danger text-signal-danger hover:text-white flex items-center justify-center transition-colors"
                     >
                       <X className="w-4.5 h-4.5" />
                     </button>
@@ -151,76 +151,76 @@ export const FriendsView: React.FC = () => {
           </div>
         )}
 
-        {/* REGULAR FRIENDS VIEW (ONLINE / ALL) */}
+        {/* VISÃO REGULAR (DISPONÍVEIS / TODOS) */}
         {activeTab !== 'add' && activeTab !== 'pending' && (
           <div className="space-y-2 max-w-2xl">
-            <span className="block text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider mb-4">
+            <span className="block text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider mb-4 font-mono">
               Todos os Amigos ({displayFriends.length})
             </span>
 
             {displayFriends.length === 0 ? (
-              <p className="text-xs text-discordex-text-secondary/50 italic">Nenhum amigo encontrado.</p>
+              <p className="text-xs text-signal-text-secondary/50 italic">Nenhum amigo encontrado.</p>
             ) : (
               displayFriends.map(friend => (
-                <div 
+                <div
                   key={friend.id}
-                  className="flex items-center justify-between p-3 bg-discordex-secondary border border-discordex-border rounded-2xl hover:bg-discordex-surface/40 hover:border-discordex-text-secondary/20 transition-all group"
+                  className="flex items-center justify-between p-3 bg-signal-secondary border border-signal-border panel-cut-sm hover:bg-signal-surface/40 hover:border-signal-text-secondary/20 transition-all group"
                 >
-                  {/* Info details */}
+                  {/* Informações */}
                   <div className="flex items-center gap-3 min-w-0">
-                    
-                    {/* status avatar */}
+
+                    {/* Avatar de status */}
                     <div className="relative shrink-0">
-                      <img 
-                        src={friend.avatar} 
-                        alt={friend.displayName} 
+                      <img
+                        src={friend.avatar}
+                        alt={friend.displayName}
                         className="w-9 h-9 rounded-full object-cover"
                       />
-                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-discordex-bg ${
-                        friend.status === 'online' ? 'bg-discordex-success' :
-                        friend.status === 'idle' ? 'bg-discordex-warning' :
-                        friend.status === 'dnd' ? 'bg-discordex-danger' :
-                        'bg-discordex-text-secondary'
+                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-signal-bg ${
+                        friend.status === 'online' ? 'bg-signal-success shadow-[0_0_4px_rgba(79,178,134,0.6)]' :
+                        friend.status === 'idle' ? 'bg-signal-warning shadow-[0_0_4px_rgba(226,133,59,0.6)]' :
+                        friend.status === 'dnd' ? 'bg-signal-danger shadow-[0_0_4px_rgba(217,96,75,0.6)]' :
+                        'bg-signal-text-secondary'
                       }`} />
                     </div>
 
                     <div className="min-w-0 leading-tight">
-                      <span className="block text-xs font-bold text-discordex-text-primary truncate">
+                      <span className="block text-xs font-bold text-signal-text-primary truncate">
                         {friend.displayName}
                       </span>
-                      <span className="block text-[10px] text-discordex-text-secondary truncate mt-0.5">
+                      <span className="block text-[10px] text-signal-text-secondary truncate mt-0.5 font-mono">
                         @{friend.username} {friend.bio ? `• ${friend.bio}` : ''}
                       </span>
                     </div>
 
                   </div>
 
-                  {/* Actions buttons */}
+                  {/* Ações */}
                   <div className="flex items-center gap-2 shrink-0">
                     <Tooltip content="Enviar Mensagem Direta" position="top">
-                      <button 
+                      <button
                         onClick={() => setActiveDmId(friend.id)}
-                        className="w-8 h-8 rounded-lg bg-discordex-surface hover:bg-discordex-hover text-discordex-text-secondary hover:text-discordex-text-primary flex items-center justify-center transition-colors border border-discordex-border"
+                        className="w-8 h-8 rounded-md bg-signal-surface hover:bg-signal-hover text-signal-text-secondary hover:text-signal-text-primary flex items-center justify-center transition-colors border border-signal-border"
                       >
-                        <MessageSquare className="w-4 h-4" />
+                        <ChatText className="w-4 h-4" />
                       </button>
                     </Tooltip>
 
                     <Tooltip content="Iniciar Chamada de Voz" position="top">
-                      <button 
+                      <button
                         onClick={() => startCall('voice', friend.id, friend.displayName, false, friend.avatar)}
-                        className="w-8 h-8 rounded-lg bg-discordex-surface hover:bg-discordex-hover text-discordex-text-secondary hover:text-discordex-text-primary flex items-center justify-center transition-colors border border-discordex-border"
+                        className="w-8 h-8 rounded-md bg-signal-surface hover:bg-signal-hover text-signal-text-secondary hover:text-signal-text-primary flex items-center justify-center transition-colors border border-signal-border"
                       >
                         <Phone className="w-4 h-4" />
                       </button>
                     </Tooltip>
 
                     <Tooltip content="Iniciar Chamada de Vídeo" position="top">
-                      <button 
+                      <button
                         onClick={() => startCall('video', friend.id, friend.displayName, false, friend.avatar)}
-                        className="w-8 h-8 rounded-lg bg-discordex-surface hover:bg-discordex-hover text-discordex-text-secondary hover:text-discordex-text-primary flex items-center justify-center transition-colors border border-discordex-border"
+                        className="w-8 h-8 rounded-md bg-signal-surface hover:bg-signal-hover text-signal-text-secondary hover:text-signal-text-primary flex items-center justify-center transition-colors border border-signal-border"
                       >
-                        <Video className="w-4 h-4" />
+                        <VideoCamera className="w-4 h-4" />
                       </button>
                     </Tooltip>
                   </div>

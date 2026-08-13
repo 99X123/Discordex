@@ -42,6 +42,7 @@ export interface User {
   username: string;
   displayName: string;
   avatar: string;
+  banner?: string;
   status: 'online' | 'offline' | 'idle' | 'dnd';
   customStatus?: string;
   role?: 'Administrador' | 'Moderador' | 'Membro';
@@ -244,7 +245,7 @@ interface AppContextType {
   closeModal: () => void;
   addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
-  updateCurrentUserProfile: (displayName: string, bio: string, status: User['status'], avatarUrl?: string, username?: string) => void;
+  updateCurrentUserProfile: (displayName: string, bio: string, status: User['status'], avatarUrl?: string, username?: string, bannerUrl?: string) => void;
   triggerConnectionChange: (state: AppContextType['connectionState']) => void;
   sendFriendRequest: (username: string) => void;
   respondFriendRequest: (friendshipId: string, status: 'accepted' | 'declined') => void;
@@ -260,6 +261,7 @@ const toUser = (profile: ProfileRow, role?: User['role']): User => ({
   username: profile.username,
   displayName: profile.display_name,
   avatar: profile.avatar_url || fallbackAvatar(profile.display_name || profile.username),
+  banner: profile.banner_url || undefined,
   status: profile.status,
   role,
   bio: profile.bio || undefined,
@@ -1381,14 +1383,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setModalPayload(null);
   };
 
-  const updateCurrentUserProfile = async (displayName: string, bio: string, status: User['status'], avatarUrl?: string, username?: string) => {
+  const updateCurrentUserProfile = async (displayName: string, bio: string, status: User['status'], avatarUrl?: string, username?: string, bannerUrl?: string) => {
     const cleanAvatarUrl = avatarUrl?.trim() || undefined;
     const cleanUsername = username?.trim() || undefined;
+    const cleanBannerUrl = bannerUrl?.trim() || undefined;
     const result = await updateProfile({
       display_name: displayName,
       bio,
       status,
       avatar_url: cleanAvatarUrl,
+      banner_url: cleanBannerUrl,
       ...(cleanUsername ? { username: cleanUsername } : {}),
     });
     if (!result.success || !result.data) {
@@ -1446,7 +1450,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   if (!currentUser) {
-    return <div className="h-screen bg-discordex-bg text-discordex-text-primary flex items-center justify-center text-sm">Carregando Discordex...</div>;
+    return <div className="h-screen bg-signal-bg text-signal-text-primary flex items-center justify-center text-sm">Carregando Discordex...</div>;
   }
 
   return (

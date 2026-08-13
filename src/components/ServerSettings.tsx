@@ -7,7 +7,7 @@ import { getServerBans, unbanMember, type ServerBanWithProfile } from '../servic
 import { RoleSettings, AuditLogs } from './ServerRoleSettings';
 import { PERMISSIONS, hasPermission } from '../lib/permissions';
 import type { Database } from '../lib/database.types';
-import { Ban, Camera, Clock, Hash, Volume2, Trash2, Pencil, Check, X, X as CloseIcon, Shield, ChevronLeft, Link2, Copy, Plus, UserMinus } from 'lucide-react';
+import { Prohibit, Camera, Clock, Hash, Waveform, Trash, PencilSimple, Check, X, X as CloseIcon, Shield, CaretLeft, LinkSimple, Copy, Plus, UserMinus } from '@phosphor-icons/react';
 
 type Tab = 'overview' | 'channels' | 'members' | 'bans' | 'roles' | 'invites' | 'logs';
 
@@ -35,10 +35,14 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
 };
 
 const statusColor = (status: string) =>
-  status === 'online' ? 'bg-discordex-success' :
-  status === 'idle' ? 'bg-discordex-warning' :
-  status === 'dnd' ? 'bg-discordex-danger' :
-  'bg-discordex-text-secondary';
+  status === 'online' ? 'bg-signal-success' :
+  status === 'idle' ? 'bg-signal-warning' :
+  status === 'dnd' ? 'bg-signal-danger' :
+  'bg-signal-text-secondary';
+
+const inputCls = "w-full px-4 py-3 bg-signal-secondary border border-signal-border rounded-md text-xs text-signal-text-primary focus:outline-none focus:border-brass transition-colors disabled:opacity-50";
+const cardCls = "bg-signal-secondary p-4.5 rounded-md border border-signal-border";
+const primaryBtn = "px-5 py-2.5 bg-brass hover:bg-brass-hover text-signal-bg rounded-md text-sm font-bold transition-colors";
 
 export const ServerSettings: React.FC<{ server: Server; onClose: () => void; initialTab?: string; initialRoleId?: string | null }> = ({ server, onClose, initialTab, initialRoleId }) => {
   const { updateServerConfig, deleteChannel, refreshServers, serverMembers, currentUser, addToast, getMyPermissions, canManageUser, addCategory, kickMember, banMember, timeoutMember } = useApp();
@@ -220,10 +224,10 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
   const renderChannelRow = (channel: { id: string; name: string; type: 'text' | 'voice' }) => {
     const isVoice = channel.type === 'voice';
     return (
-      <div key={channel.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl group">
+      <div key={channel.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-signal-secondary border border-signal-border rounded-md group">
         {isVoice
-          ? <Volume2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
-          : <Hash className="w-4 h-4 text-discordex-text-secondary shrink-0" />}
+          ? <Waveform className="w-4 h-4 text-signal-text-secondary shrink-0" />
+          : <Hash className="w-4 h-4 text-signal-text-secondary shrink-0" />}
         {editingChannel === channel.id ? (
           <div className="flex-1 flex items-center gap-2">
             <input
@@ -231,31 +235,31 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
               value={editingName}
               onChange={(event) => setEditingName(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter') handleRenameChannel(channel.id); if (event.key === 'Escape') setEditingChannel(null); }}
-              className="flex-1 px-3 py-1.5 bg-discordex-bg border border-discordex-border rounded-lg text-xs text-discordex-text-primary focus:outline-none focus:border-primary"
+              className="flex-1 px-3 py-1.5 bg-signal-bg border border-signal-border rounded-md text-xs text-signal-text-primary focus:outline-none focus:border-brass"
             />
-            <button onClick={() => handleRenameChannel(channel.id)} className="p-1.5 text-discordex-success hover:bg-discordex-success/10 rounded-lg transition-colors">
+            <button onClick={() => handleRenameChannel(channel.id)} className="p-1.5 text-signal-success hover:bg-signal-success/10 rounded-md transition-colors">
               <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => setEditingChannel(null)} className="p-1.5 text-discordex-text-secondary hover:bg-discordex-surface rounded-lg transition-colors">
+            <button onClick={() => setEditingChannel(null)} className="p-1.5 text-signal-text-secondary hover:bg-signal-surface rounded-md transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
-          <span className="flex-1 text-xs font-semibold text-discordex-text-primary truncate">{channel.name}</span>
+          <span className="flex-1 text-xs font-semibold text-signal-text-primary truncate">{channel.name}</span>
         )}
         {isOwner && editingChannel !== channel.id && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => { setEditingChannel(channel.id); setEditingName(channel.name); }}
-              className="p-1.5 text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+              className="p-1.5 text-signal-text-secondary hover:text-signal-text-primary hover:bg-signal-surface rounded-md transition-colors"
             >
-              <Pencil className="w-3.5 h-3.5" />
+              <PencilSimple className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => { if (window.confirm(`Remover o canal #${channel.name}?`)) deleteChannel(server.id, channel.id); }}
-              className="p-1.5 text-discordex-danger hover:bg-discordex-danger/10 rounded-lg transition-colors"
+              className="p-1.5 text-signal-danger hover:bg-signal-danger/10 rounded-md transition-colors"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
@@ -263,52 +267,55 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
     );
   };
 
+  const navBtn = (active: boolean) =>
+    `w-full text-left px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${active ? 'bg-signal-surface text-signal-text-primary' : 'text-signal-text-secondary hover:bg-signal-surface/40 hover:text-signal-text-primary'}`;
+
   return (
-    <div className="fixed inset-0 z-50 bg-discordex-bg flex animate-fade-in">
-      <aside className="w-60 bg-discordex-secondary flex flex-col border-r border-discordex-border py-12 px-6 shrink-0 justify-between">
+    <div className="fixed inset-0 z-50 bg-signal-bg flex animate-fade-in">
+      <aside className="w-60 bg-signal-secondary flex flex-col border-r border-signal-border py-12 px-6 shrink-0 justify-between">
         <div className="w-48 space-y-6">
           <button
             onClick={onClose}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-discordex-text-secondary hover:text-discordex-text-primary transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-signal-text-secondary hover:text-signal-text-primary transition-colors"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <CaretLeft className="w-4 h-4" />
             Voltar
           </button>
 
           <div className="flex items-center gap-3 px-1">
-            <div className="w-10 h-10 rounded-2xl bg-discordex-surface flex items-center justify-center overflow-hidden shrink-0 border border-discordex-border">
+            <div className="w-10 h-10 rounded-md bg-signal-surface flex items-center justify-center overflow-hidden shrink-0 border border-signal-border">
               {server.iconUrl ? (
                 <img src={server.iconUrl} alt={server.name} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-[11px] font-black text-discordex-text-primary">{server.icon}</span>
+                <span className="text-[11px] font-black text-signal-text-primary">{server.icon}</span>
               )}
             </div>
-            <span className="text-sm font-bold text-discordex-text-primary truncate">{server.name}</span>
+            <span className="text-sm font-display font-bold text-signal-text-primary truncate">{server.name}</span>
           </div>
 
           <div className="space-y-1">
             <button
               onClick={() => setTab('overview')}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'overview' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+              className={navBtn(tab === 'overview')}
             >
               Visao geral
             </button>
             <button
               onClick={() => setTab('channels')}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'channels' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+              className={navBtn(tab === 'channels')}
             >
               Canais
             </button>
             <button
               onClick={() => setTab('members')}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'members' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+              className={navBtn(tab === 'members')}
             >
               Membros
             </button>
             {canBanMembers && (
               <button
                 onClick={() => setTab('bans')}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'bans' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+                className={navBtn(tab === 'bans')}
               >
                 Banimentos
               </button>
@@ -316,21 +323,21 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
             {canManageRoles && (
               <button
                 onClick={() => setTab('roles')}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'roles' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+                className={navBtn(tab === 'roles')}
               >
                 Cargos
               </button>
             )}
             <button
               onClick={() => setTab('invites')}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'invites' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+              className={navBtn(tab === 'invites')}
             >
               Convites
             </button>
             {canViewLogs && (
               <button
                 onClick={() => setTab('logs')}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tab === 'logs' ? 'bg-discordex-surface text-discordex-text-primary' : 'text-discordex-text-secondary hover:bg-discordex-surface/40 hover:text-discordex-text-primary'}`}
+                className={navBtn(tab === 'logs')}
               >
                 Logs
               </button>
@@ -339,10 +346,10 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
         </div>
       </aside>
 
-      <main className="flex-1 bg-discordex-bg overflow-y-auto py-12 px-10 relative">
+      <main className="flex-1 bg-signal-bg overflow-y-auto py-12 px-10 relative panel-cut-tl">
         <button
           onClick={onClose}
-          className="absolute right-12 top-12 w-9 h-9 rounded-full border border-discordex-border hover:border-discordex-text-primary flex items-center justify-center text-discordex-text-secondary hover:text-discordex-text-primary transition-all"
+          className="absolute right-12 top-12 w-9 h-9 rounded-full border border-signal-border hover:border-brass flex items-center justify-center text-signal-text-secondary hover:text-signal-text-primary transition-all"
         >
           <CloseIcon className="w-5 h-5" />
         </button>
@@ -350,14 +357,14 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
         {tab === 'overview' && (
           <form onSubmit={handleSaveOverview} className="max-w-xl space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-discordex-text-primary">Visao geral</h2>
-              <p className="text-xs text-discordex-text-secondary mt-1">
+              <h2 className="text-xl font-display font-bold text-signal-text-primary">Visao geral</h2>
+              <p className="text-xs text-signal-text-secondary mt-1">
                 {isOwner ? 'Configuracoes basicas do servidor.' : 'Somente o dono do servidor pode editar.'}
               </p>
             </div>
 
-            <div className="bg-discordex-secondary p-4.5 rounded-2xl border border-discordex-border flex items-center gap-4">
-              <div className="w-20 h-20 rounded-2xl bg-discordex-bg flex items-center justify-center overflow-hidden border border-discordex-border shrink-0">
+            <div className={`${cardCls} flex items-center gap-4`}>
+              <div className="w-20 h-20 rounded-md bg-signal-bg flex items-center justify-center overflow-hidden border border-signal-border shrink-0">
                 {server.iconUrl ? (
                   <img
                     src={server.iconUrl}
@@ -366,55 +373,55 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
                     onError={(event) => { event.currentTarget.style.display = 'none'; }}
                   />
                 ) : (
-                  <span className="text-xl font-black text-discordex-text-primary">{server.icon}</span>
+                  <span className="text-xl font-black text-signal-text-primary">{server.icon}</span>
                 )}
               </div>
               {isOwner ? (
                 <div className="space-y-2 flex-1 min-w-0">
-                  <span className="text-xs font-bold text-discordex-text-secondary uppercase tracking-wider inline-flex items-center gap-2">
+                  <span className="text-xs font-bold text-signal-text-secondary uppercase tracking-wider inline-flex items-center gap-2">
                     <Camera className="w-3.5 h-3.5" />
                     Icone do servidor
                   </span>
-                  <label className="inline-flex items-center justify-center px-4 py-3 bg-discordex-bg hover:bg-discordex-surface border border-discordex-border rounded-xl text-xs font-semibold text-discordex-text-primary cursor-pointer transition-colors">
+                  <label className="inline-flex items-center justify-center px-4 py-3 bg-signal-bg hover:bg-signal-surface border border-signal-border rounded-md text-xs font-semibold text-signal-text-primary cursor-pointer transition-colors">
                     {iconUploading ? 'Enviando...' : 'Escolher imagem'}
                     <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={handleIconUpload} disabled={iconUploading} className="sr-only" />
                   </label>
-                  <p className="text-[10px] text-discordex-text-secondary">PNG, JPG, WEBP ou GIF ate 5 MB.</p>
+                  <p className="text-[10px] text-signal-text-secondary">PNG, JPG, WEBP ou GIF ate 5 MB.</p>
                 </div>
               ) : (
                 <div className="flex-1 min-w-0">
-                  <span className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider">Icone do servidor</span>
+                  <span className="block text-xs font-bold text-signal-text-secondary uppercase tracking-wider">Icone do servidor</span>
                 </div>
               )}
             </div>
 
             <label className="block space-y-2">
-              <span className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider">Nome do servidor</span>
+              <span className="block text-xs font-bold text-signal-text-secondary uppercase tracking-wider">Nome do servidor</span>
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 disabled={!isOwner}
-                className="w-full px-4 py-3 bg-discordex-secondary border border-discordex-border rounded-xl text-xs text-discordex-text-primary focus:outline-none focus:border-primary transition-colors disabled:opacity-50"
+                className={inputCls}
                 required
               />
             </label>
 
             <label className="block space-y-2">
-              <span className="block text-xs font-bold text-discordex-text-secondary uppercase tracking-wider">Descricao</span>
+              <span className="block text-xs font-bold text-signal-text-secondary uppercase tracking-wider">Descricao</span>
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 disabled={!isOwner}
                 rows={4}
-                className="w-full px-4 py-3 bg-discordex-secondary border border-discordex-border rounded-xl text-xs text-discordex-text-primary focus:outline-none focus:border-primary transition-colors resize-none leading-relaxed disabled:opacity-50"
+                className={`${inputCls} resize-none leading-relaxed`}
               />
             </label>
 
             {isOwner && (
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-semibold transition-colors"
+                className={primaryBtn}
               >
                 Salvar alteracoes
               </button>
@@ -425,8 +432,8 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
         {tab === 'channels' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-discordex-text-primary">Canais</h2>
-              <p className="text-xs text-discordex-text-secondary mt-1">
+              <h2 className="text-xl font-display font-bold text-signal-text-primary">Canais</h2>
+              <p className="text-xs text-signal-text-secondary mt-1">
                 Organize os canais em categorias, renomeie ou remova.
               </p>
             </div>
@@ -447,11 +454,11 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
                   value={newCategoryName}
                   onChange={(event) => setNewCategoryName(event.target.value)}
                   placeholder="Nome da nova categoria"
-                  className="flex-1 px-4 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl text-xs text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-signal-secondary border border-signal-border rounded-md text-xs text-signal-text-primary placeholder:text-signal-text-secondary/40 focus:outline-none focus:border-brass transition-colors"
                 />
                 <button
                   type="submit"
-                  className="shrink-0 px-4 py-2.5 bg-discordex-surface hover:bg-discordex-hover border border-discordex-border rounded-xl text-xs font-semibold text-discordex-text-primary transition-colors"
+                  className="shrink-0 px-4 py-2.5 bg-signal-surface hover:bg-signal-hover border border-signal-border rounded-md text-xs font-semibold text-signal-text-primary transition-colors"
                 >
                   Criar categoria
                 </button>
@@ -463,23 +470,23 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
               return (
                 <div key={category.id}>
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider">
+                    <h3 className="text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider">
                       {category.name}
                     </h3>
                     {isOwner && (
                       <button
                         onClick={() => { if (window.confirm(`Remover a categoria "${category.name}"? Os canais dela serao movidos para "Sem categoria".`)) deleteChannel(server.id, category.id); }}
-                        className="p-1 text-discordex-danger/70 hover:text-discordex-danger transition-colors"
+                        className="p-1 text-signal-danger/70 hover:text-signal-danger transition-colors"
                         title="Excluir categoria"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                   <div className="space-y-1.5">
                     {catChannels.map(renderChannelRow)}
                     {catChannels.length === 0 && (
-                      <span className="block px-2 text-[10px] text-discordex-text-secondary/40 italic">Nenhum canal</span>
+                      <span className="block px-2 text-[10px] text-signal-text-secondary/40 italic">Nenhum canal</span>
                     )}
                   </div>
                 </div>
@@ -488,7 +495,7 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
 
             {channelsByCategory(null).length > 0 && (
               <div key="__uncategorized__">
-                <h3 className="text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+                <h3 className="text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider mb-2">
                   Sem categoria
                 </h3>
                 <div className="space-y-1.5">
@@ -502,8 +509,8 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
         {tab === 'members' && (
           <div className="max-w-2xl space-y-4">
             <div>
-              <h2 className="text-xl font-bold text-discordex-text-primary">Membros</h2>
-              <p className="text-xs text-discordex-text-secondary mt-1">
+              <h2 className="text-xl font-display font-bold text-signal-text-primary">Membros</h2>
+              <p className="text-xs text-signal-text-secondary mt-1">
                 {members.length} membro(s) neste servidor.
               </p>
             </div>
@@ -512,32 +519,32 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
               {members.map((member) => {
                 const topRole = member.roles[0];
                 return (
-                  <div key={member.id} className="flex items-center gap-3 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl">
+                  <div key={member.id} className="flex items-center gap-3 px-3 py-2.5 bg-signal-secondary border border-signal-border rounded-md">
                     <div className="relative shrink-0">
                       <img src={member.profile.avatar} alt={member.profile.displayName} className="w-9 h-9 rounded-full object-cover" />
-                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-discordex-bg ${statusColor(member.profile.status)}`} />
+                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-signal-bg ${statusColor(member.profile.status)}`} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="block text-xs font-bold text-discordex-text-primary truncate">
+                      <span className="block text-xs font-bold text-signal-text-primary truncate">
                         {member.nickname || member.profile.displayName}
                       </span>
-                      <span className="block text-[10px] text-discordex-text-secondary truncate">@{member.profile.username}</span>
+                      <span className="block text-[10px] text-signal-text-secondary truncate font-mono">@{member.profile.username}</span>
                     </div>
                     {topRole ? (
                       <span
-                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg shrink-0"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md shrink-0"
                         style={{ color: topRole.color, backgroundColor: `${topRole.color}1A` }}
                       >
                         <Shield className="w-3 h-3" />
                         {topRole.name}
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold text-discordex-text-secondary px-2 py-1 bg-discordex-surface rounded-lg shrink-0">
+                      <span className="text-[10px] font-bold text-signal-text-secondary px-2 py-1 bg-signal-surface rounded-md shrink-0">
                         Sem cargo
                       </span>
                     )}
                     {member.timeoutUntil && new Date(member.timeoutUntil) > new Date() && (
-                      <span className="text-[10px] font-bold text-discordex-warning px-2 py-1 bg-discordex-warning/10 rounded-lg shrink-0">
+                      <span className="text-[10px] font-bold text-signal-warning px-2 py-1 bg-signal-warning/10 rounded-md shrink-0">
                         Castigado
                       </span>
                     )}
@@ -546,7 +553,7 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
                         {canTimeoutMembers && (
                           <button
                             onClick={() => handleTimeoutMember(member)}
-                            className="p-1.5 rounded-lg text-discordex-warning hover:bg-discordex-warning/10 transition-colors"
+                            className="p-1.5 rounded-md text-signal-warning hover:bg-signal-warning/10 transition-colors"
                             title="Castigar com timeout"
                           >
                             <Clock className="w-3.5 h-3.5" />
@@ -555,7 +562,7 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
                         {canKickMembers && (
                           <button
                             onClick={() => handleKickMember(member)}
-                            className="p-1.5 rounded-lg text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface transition-colors"
+                            className="p-1.5 rounded-md text-signal-text-secondary hover:text-signal-text-primary hover:bg-signal-surface transition-colors"
                             title="Expulsar"
                           >
                             <UserMinus className="w-3.5 h-3.5" />
@@ -564,10 +571,10 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
                         {canBanMembers && (
                           <button
                             onClick={() => handleBanMember(member)}
-                            className="p-1.5 rounded-lg text-discordex-danger hover:bg-discordex-danger/10 transition-colors"
+                            className="p-1.5 rounded-md text-signal-danger hover:bg-signal-danger/10 transition-colors"
                             title="Banir"
                           >
-                            <Ban className="w-3.5 h-3.5" />
+                            <Prohibit className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
@@ -576,7 +583,7 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
                 );
               })}
               {members.length === 0 && (
-                <p className="text-xs text-discordex-text-secondary/50 italic">Nenhum membro encontrado.</p>
+                <p className="text-xs text-signal-text-secondary/50 italic">Nenhum membro encontrado.</p>
               )}
             </div>
           </div>
@@ -585,37 +592,37 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
         {tab === 'bans' && canBanMembers && (
           <div className="max-w-2xl space-y-4">
             <div>
-              <h2 className="text-xl font-bold text-discordex-text-primary">Banimentos</h2>
-              <p className="text-xs text-discordex-text-secondary mt-1">
+              <h2 className="text-xl font-display font-bold text-signal-text-primary">Banimentos</h2>
+              <p className="text-xs text-signal-text-secondary mt-1">
                 Pessoas impedidas de entrar neste grupo.
               </p>
             </div>
 
             {bansLoading ? (
-              <p className="text-xs text-discordex-text-secondary/50 italic">Carregando banimentos...</p>
+              <p className="text-xs text-signal-text-secondary/50 italic">Carregando banimentos...</p>
             ) : bans.length === 0 ? (
-              <p className="text-xs text-discordex-text-secondary/50 italic">Nenhum usuario banido.</p>
+              <p className="text-xs text-signal-text-secondary/50 italic">Nenhum usuario banido.</p>
             ) : (
               <div className="space-y-1.5">
                 {bans.map((ban) => (
-                  <div key={ban.id} className="flex items-center gap-3 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl">
+                  <div key={ban.id} className="flex items-center gap-3 px-3 py-2.5 bg-signal-secondary border border-signal-border rounded-md">
                     <img
                       src={ban.profile.avatar_url || `https://ui-avatars.com/api/?background=ED4245&color=fff&bold=true&name=${encodeURIComponent(ban.profile.display_name || ban.profile.username)}`}
                       alt={ban.profile.display_name}
                       className="w-9 h-9 rounded-full object-cover"
                     />
                     <div className="min-w-0 flex-1">
-                      <span className="block text-xs font-bold text-discordex-text-primary truncate">{ban.profile.display_name}</span>
-                      <span className="block text-[10px] text-discordex-text-secondary truncate">
+                      <span className="block text-xs font-bold text-signal-text-primary truncate">{ban.profile.display_name}</span>
+                      <span className="block text-[10px] text-signal-text-secondary truncate font-mono">
                         @{ban.profile.username} â€¢ {new Date(ban.created_at).toLocaleDateString('pt-BR')}
                       </span>
                       {ban.reason && (
-                        <span className="block text-[10px] text-discordex-text-secondary/70 truncate">Motivo: {ban.reason}</span>
+                        <span className="block text-[10px] text-signal-text-secondary/70 truncate">Motivo: {ban.reason}</span>
                       )}
                     </div>
                     <button
                       onClick={() => handleUnban(ban)}
-                      className="px-3 py-2 rounded-lg text-xs font-semibold text-discordex-text-primary bg-discordex-surface hover:bg-discordex-hover border border-discordex-border transition-colors"
+                      className="px-3 py-2 rounded-md text-xs font-semibold text-signal-text-primary bg-signal-surface hover:bg-signal-hover border border-signal-border transition-colors"
                     >
                       Desbanir
                     </button>
@@ -637,33 +644,33 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
         {tab === 'invites' && (
           <div className="max-w-2xl space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-discordex-text-primary">Convites</h2>
-              <p className="text-xs text-discordex-text-secondary mt-1">
+              <h2 className="text-xl font-display font-bold text-signal-text-primary">Convites</h2>
+              <p className="text-xs text-signal-text-secondary mt-1">
                 Crie um link de convite para convidar pessoas para este servidor.
               </p>
             </div>
 
             <button
               onClick={handleCreateInvite}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-semibold transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-3 bg-brass hover:bg-brass-hover text-signal-bg rounded-md text-sm font-bold transition-colors"
             >
               <Plus className="w-4 h-4" />
               Criar convite e copiar link
             </button>
 
             {invitesError && (
-              <div className="text-xs rounded-xl border border-discordex-danger/30 bg-discordex-danger/10 text-discordex-danger px-3 py-2">
+              <div className="text-xs rounded-md border border-signal-danger/30 bg-signal-danger/10 text-signal-danger px-3 py-2">
                 {invitesError}
               </div>
             )}
 
             {lastInviteUrl && (
-              <div className="flex items-center gap-2.5 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl">
-                <Link2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
-                <span className="flex-1 text-xs text-discordex-text-primary font-mono truncate">{lastInviteUrl}</span>
+              <div className="flex items-center gap-2.5 px-3 py-2.5 bg-signal-secondary border border-signal-border rounded-md">
+                <LinkSimple className="w-4 h-4 text-signal-text-secondary shrink-0" />
+                <span className="flex-1 text-xs text-signal-text-primary font-mono truncate">{lastInviteUrl}</span>
                 <button
                   onClick={async () => { const ok = await copyToClipboard(lastInviteUrl); addToast(ok ? 'Link copiado.' : 'Falha ao copiar.', ok ? 'success' : 'error'); }}
-                  className="p-1.5 text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+                  className="p-1.5 text-signal-text-secondary hover:text-signal-text-primary hover:bg-signal-surface rounded-md transition-colors"
                   title="Copiar link"
                 >
                   <Copy className="w-4 h-4" />
@@ -672,35 +679,35 @@ export const ServerSettings: React.FC<{ server: Server; onClose: () => void; ini
             )}
 
             <div>
-              <h3 className="text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider mb-2">
+              <h3 className="text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider mb-2">
                 Convites ativos ({invites.length})
               </h3>
 
               {invitesLoading ? (
-                <p className="text-xs text-discordex-text-secondary/50 italic">Carregando...</p>
+                <p className="text-xs text-signal-text-secondary/50 italic">Carregando...</p>
               ) : invites.length === 0 ? (
-                <p className="text-xs text-discordex-text-secondary/50 italic">Nenhum convite criado ainda.</p>
+                <p className="text-xs text-signal-text-secondary/50 italic">Nenhum convite criado ainda.</p>
               ) : (
                 <div className="space-y-1.5">
                   {invites.map((invite) => (
-                    <div key={invite.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-discordex-secondary border border-discordex-border rounded-xl">
-                      <Link2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
+                    <div key={invite.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-signal-secondary border border-signal-border rounded-md">
+                      <LinkSimple className="w-4 h-4 text-signal-text-secondary shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <span className="block text-xs font-mono text-discordex-text-primary truncate">
+                        <span className="block text-xs font-mono text-signal-text-primary truncate">
                           {window.location.origin}?invite={invite.code}
                         </span>
-                        <span className="block text-[10px] text-discordex-text-secondary">
+                        <span className="block text-[10px] text-signal-text-secondary font-mono">
                           {invite.uses} uso(s)
                           {invite.max_uses ? ` / ${invite.max_uses}` : ''} • {new Date(invite.created_at).toLocaleDateString('pt-BR')}
                         </span>
                       </div>
                       <button
                         onClick={() => handleCopyInvite(invite)}
-                        className="p-2 text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface rounded-lg transition-colors"
+                        className="p-2 text-signal-text-secondary hover:text-signal-text-primary hover:bg-signal-surface rounded-md transition-colors"
                         title="Copiar link"
                       >
                         {copiedInviteId === invite.id
-                          ? <Check className="w-4 h-4 text-discordex-success" />
+                          ? <Check className="w-4 h-4 text-signal-success" />
                           : <Copy className="w-4 h-4" />}
                       </button>
                     </div>

@@ -44,6 +44,7 @@ export async function updateProfile(updates: {
   username?: string;
   bio?: string;
   avatar_url?: string;
+  banner_url?: string;
   status?: Profile['status'];
 }): Promise<{ success: boolean; data?: Profile; error?: string }> {
   const { data: { user } } = await supabase.auth.getUser();

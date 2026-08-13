@@ -12,6 +12,7 @@ export interface Database {
           username: string;
           display_name: string;
           avatar_url: string | null;
+          banner_url: string | null;
           bio: string | null;
           status: 'online' | 'idle' | 'dnd' | 'offline';
           created_at: string;
@@ -22,6 +23,7 @@ export interface Database {
           username: string;
           display_name: string;
           avatar_url?: string | null;
+          banner_url?: string | null;
           bio?: string | null;
           status?: 'online' | 'idle' | 'dnd' | 'offline';
         };
@@ -29,6 +31,7 @@ export interface Database {
           username?: string;
           display_name?: string;
           avatar_url?: string | null;
+          banner_url?: string | null;
           bio?: string | null;
           status?: 'online' | 'idle' | 'dnd' | 'offline';
         };

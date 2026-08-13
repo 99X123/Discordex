@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -9,9 +9,9 @@ html, body, #root {
   padding: 0;
   width: 100%;
   height: 100%;
-  background-color: #0D0D10; /* bg-dark */
-  color: #FFFFFF;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #0A1613;
+  color: #EDEAE1;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   overflow: hidden;
   user-select: none;
 }
@@ -27,12 +27,19 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1C1C22;
-  border-radius: 4px;
+  background: #1A2E27;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #303038;
+  background: #23392F;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Tooltip transition utility */
@@ -42,14 +49,92 @@ html, body, #root {
   transform: translateY(0) scale(1);
 }
 
-/* Active ring effect for voice speaking */
-.speaking-ring {
-  box-shadow: 0 0 0 2px #E53935, 0 0 8px #E53935;
+/* ------------------------------------------------------------------
+   SINAL — painel chanfrado (canto superior-direito cortado em 45°).
+   Substitui o rounded-2xl como assinatura de "painel de hardware".
+   ------------------------------------------------------------------ */
+.panel-cut {
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+  border-radius: 4px;
+}
+.panel-cut-sm {
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  border-radius: 4px;
+}
+.panel-cut-lg {
+  clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 0 100%);
+  border-radius: 4px;
+}
+.panel-cut-tl {
+  clip-path: polygon(24px 0, 100% 0, 100% 100%, 0 100%, 0 24px);
+  border-radius: 4px;
 }
 
-/* Glassmorphism utility */
+/* ------------------------------------------------------------------
+   SINAL — medidor de transmissão (VU). Substitui o anel de glow.
+   5 barras finas, animação assíncrona, cor brass. Apenas quem está
+   de fato transmitindo exibe.
+   ------------------------------------------------------------------ */
+.transmit-meter {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+.transmit-meter .tm-bar {
+  width: 2px;
+  height: 100%;
+  border-radius: 1px;
+  background: #D9A44A;
+  box-shadow: 0 0 6px rgba(217, 164, 74, 0.5);
+  transform-origin: bottom;
+  animation: transmitPulse 0.9s ease-in-out infinite;
+}
+.transmit-meter .tm-bar:nth-child(1) { animation-delay: 0s; }
+.transmit-meter .tm-bar:nth-child(2) { animation-delay: 0.16s; }
+.transmit-meter .tm-bar:nth-child(3) { animation-delay: 0.32s; }
+.transmit-meter .tm-bar:nth-child(4) { animation-delay: 0.5s; }
+.transmit-meter .tm-bar:nth-child(5) { animation-delay: 0.68s; }
+
+/* Medidor "parado" (offline / sem sinal) */
+.transmit-meter--idle .tm-bar {
+  animation: none;
+  transform: scaleY(0.18);
+  background: #93A69B;
+  box-shadow: none;
+}
+/* Medidor oscilando devagar (conectando) */
+.transmit-meter--scan .tm-bar {
+  animation: transmitScan 1.6s ease-in-out infinite;
+}
+.transmit-meter--scan .tm-bar:nth-child(1) { animation-delay: 0s; }
+.transmit-meter--scan .tm-bar:nth-child(2) { animation-delay: 0.3s; }
+.transmit-meter--scan .tm-bar:nth-child(3) { animation-delay: 0.6s; }
+.transmit-meter--scan .tm-bar:nth-child(4) { animation-delay: 0.9s; }
+.transmit-meter--scan .tm-bar:nth-child(5) { animation-delay: 1.2s; }
+@keyframes transmitScan {
+  0%, 100% { transform: scaleY(0.15); }
+  50% { transform: scaleY(0.6); }
+}
+
+/* Glassmorphism utility (painéis flutuantes) */
 .glass-panel {
-  background: rgba(28, 28, 34, 0.7);
+  background: rgba(26, 46, 39, 0.6);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(48, 48, 56, 0.5);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(237, 234, 225, 0.08);
+}
+
+/* Dial tick da estação ativa */
+.dial-tick {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 3px;
+  height: 8px;
+  margin-left: -1.5px;
+  border-radius: 9999px;
+  background: #D9A44A;
+  transform-origin: 50% 21px;
+  transition: transform 0.15s ease-out;
 }

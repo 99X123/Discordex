@@ -18,7 +18,7 @@ import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { InviteScreen } from './components/InviteScreen';
 import { supabase } from './lib/supabase';
 import { unlockAudio } from './lib/sounds';
-import { Menu } from 'lucide-react';
+import { List } from '@phosphor-icons/react';
 
 const detectInvite = (): string | null => {
   if (typeof window === 'undefined') return null;
@@ -78,11 +78,11 @@ const DashboardContent: React.FC<DashboardProps> = ({ inviteCode, onInviteClose 
         {/* Floating Mobile menu trigger button */}
         <button 
           onClick={() => setMobileMenuOpen(true)}
-          className={`absolute left-4 top-2.5 z-30 md:hidden p-1.5 bg-discordex-surface rounded-lg border border-discordex-border text-discordex-text-secondary hover:text-discordex-text-primary transition-all ${
+          className={`absolute left-4 top-2.5 z-30 md:hidden p-1.5 bg-signal-surface rounded-md border border-signal-border text-signal-text-secondary hover:text-signal-text-primary transition-all ${
             mobileMenuOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
         >
-          <Menu className="w-4.5 h-4.5" />
+          <List className="w-4.5 h-4.5" />
         </button>
 
         {/* Video / Voice Call Window (if connected to a voice channel) */}
@@ -168,7 +168,7 @@ function App() {
   }, []);
 
   if (loading) {
-    return <div className="h-screen bg-discordex-bg text-discordex-text-primary flex items-center justify-center text-sm">Carregando...</div>;
+    return <div className="h-screen bg-signal-bg text-signal-text-primary flex items-center justify-center text-sm">Carregando...</div>;
   }
 
   if (recoveryPending) {

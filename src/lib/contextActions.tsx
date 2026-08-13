@@ -3,11 +3,11 @@ import type { Server, ServerMember, ServerRole, Channel, Message, DirectMessage,
 import type { ContextMenuItem } from '../components/ContextMenu';
 import { PERMISSIONS, hasPermission } from './permissions';
 import {
-  ArrowDown, ArrowUp, Ban, ClipboardList, Copy, DoorOpen, Eye, Flag,
-  Hash, Info, LogOut, MessageSquare, Mic, MicOff, MoveRight, Palette, Pencil, Phone,
-  PhoneOff, Plus, Reply, Settings as SettingsIcon, Shield, Trash2, UserCircle2,
-  UserPlus, Users, Video, Volume2, VolumeX,
-} from 'lucide-react';
+  ArrowDown, ArrowUp, Prohibit, ClipboardText, Copy, DoorOpen, Eye, Flag,
+  Hash, Info, SignOut, ChatCircleDots, Microphone, MicrophoneSlash, ArrowRight, Palette, PencilSimple, Phone,
+  PhoneSlash, Plus, ArrowBendUpLeft, GearSix, Shield, TrashSimple, UserCircle,
+  UserPlus, Users, VideoCamera, SpeakerHigh, SpeakerSlash,
+} from '@phosphor-icons/react';
 
 // ============================================================
 // Registro central de acoes do menu de contexto (botao direito).
@@ -111,7 +111,7 @@ export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): Context
     if (targets.length === 0) return [{ label: 'Nenhum canal de voz disponivel' }];
     return targets.map((channel) => ({
       label: channel.name,
-      icon: <MoveRight className="w-4 h-4" />,
+      icon: <ArrowRight className="w-4 h-4" />,
       onClick: () => void deps.moveMemberBetweenChannels(serverId, member.userId, voiceChannel!, channel.id).then(() => reopen?.()),
     }));
   };
@@ -119,7 +119,7 @@ export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): Context
   const items: ContextMenuItem[] = [
     {
       label: 'Ver perfil',
-      icon: <UserCircle2 className="w-4 h-4" />,
+      icon: <UserCircle className="w-4 h-4" />,
       onClick: () => deps.openModal('profile-view', targetUser),
     },
     {
@@ -133,7 +133,7 @@ export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): Context
     items.push({ divider: true });
     items.push({
       label: 'Mensagem',
-      icon: <MessageSquare className="w-4 h-4" />,
+      icon: <ChatCircleDots className="w-4 h-4" />,
       onClick: () => deps.setActiveDmId(member.userId),
     });
     items.push({
@@ -147,7 +147,7 @@ export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): Context
         },
         {
           label: 'Chamada de video',
-          icon: <Video className="w-4 h-4" />,
+          icon: <VideoCamera className="w-4 h-4" />,
           onClick: () => deps.startCall('video', member.userId, member.profile.displayName, false, member.profile.avatar),
         },
       ],
@@ -183,28 +183,28 @@ export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): Context
       items.push({ divider: true });
       items.push({
         label: muted ? 'Desmutar' : 'Mutar',
-        icon: muted ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />,
+        icon: muted ? <Microphone className="w-4 h-4" /> : <MicrophoneSlash className="w-4 h-4" />,
         onClick: () => void deps.setMemberMuted(serverId, member.userId, !muted).then(() => reopen?.()),
       });
     }
     if (canManage && hasPerm(PERMISSIONS.DEAFEN_MEMBERS)) {
       items.push({
         label: deafened ? 'Remover surdez' : 'Ensurdecer',
-        icon: deafened ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />,
+        icon: deafened ? <SpeakerHigh className="w-4 h-4" /> : <SpeakerSlash className="w-4 h-4" />,
         onClick: () => void deps.setMemberDeafened(serverId, member.userId, !deafened).then(() => reopen?.()),
       });
     }
     if (canManage && hasPerm(PERMISSIONS.DISCONNECT_MEMBERS)) {
       items.push({
         label: 'Desconectar da call',
-        icon: <PhoneOff className="w-4 h-4" />,
+        icon: <PhoneSlash className="w-4 h-4" />,
         onClick: () => void deps.disconnectMemberFromCall(serverId, member.userId, voiceChannel).then(() => reopen?.()),
       });
     }
     if (canManage && hasPerm(PERMISSIONS.MOVE_MEMBERS)) {
       items.push({
         label: 'Mover para',
-        icon: <MoveRight className="w-4 h-4" />,
+        icon: <ArrowRight className="w-4 h-4" />,
         submenu: moveSubmenu(),
       });
     }
@@ -214,7 +214,7 @@ export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): Context
     items.push({ divider: true });
     items.push({
       label: 'Remover do grupo',
-      icon: <LogOut className="w-4 h-4" />,
+      icon: <SignOut className="w-4 h-4" />,
       danger: true,
       onClick: () => {
         if (window.confirm(`Remover ${member.profile.displayName} do grupo?`)) void deps.kickMember(serverId, member.userId);
@@ -224,7 +224,7 @@ export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): Context
   if (canManage && hasPerm(PERMISSIONS.BAN_MEMBERS)) {
     items.push({
       label: 'Banir',
-      icon: <Ban className="w-4 h-4" />,
+      icon: <Prohibit className="w-4 h-4" />,
       danger: true,
       onClick: () => {
         if (window.confirm(`Banir ${member.profile.displayName} do grupo?`)) void deps.banMember(serverId, member.userId);
@@ -267,12 +267,12 @@ export const buildRoleMenu = (deps: MenuDeps, options: RoleMenuOptions): Context
     items.push(
       {
         label: 'Editar cargo',
-        icon: <Pencil className="w-4 h-4" />,
+        icon: <PencilSimple className="w-4 h-4" />,
         onClick: () => deps.openRoleSettings(server.id, role.id),
       },
       {
         label: 'Alterar nome',
-        icon: <Pencil className="w-4 h-4" />,
+        icon: <PencilSimple className="w-4 h-4" />,
         onClick: () => {
           const name = window.prompt('Novo nome do cargo:', role.name);
           if (name && name.trim()) void deps.updateRole(server.id, role.id, { name: name.trim() }).then(() => reopen?.());
@@ -288,7 +288,7 @@ export const buildRoleMenu = (deps: MenuDeps, options: RoleMenuOptions): Context
       },
       {
         label: 'Alterar permissoes',
-        icon: <SettingsIcon className="w-4 h-4" />,
+        icon: <GearSix className="w-4 h-4" />,
         onClick: () => deps.openRoleSettings(server.id, role.id),
       },
     );
@@ -308,7 +308,7 @@ export const buildRoleMenu = (deps: MenuDeps, options: RoleMenuOptions): Context
 
     items.push({
       label: 'Remover usuario',
-      icon: <LogOut className="w-4 h-4" />,
+      icon: <SignOut className="w-4 h-4" />,
       submenu: roleMembers.length === 0
         ? [{ label: 'Nenhum membro com este cargo' }]
         : roleMembers.map((member) => ({
@@ -338,7 +338,7 @@ export const buildRoleMenu = (deps: MenuDeps, options: RoleMenuOptions): Context
     }
     items.push({
       label: 'Excluir cargo',
-      icon: <Trash2 className="w-4 h-4" />,
+      icon: <TrashSimple className="w-4 h-4" />,
       danger: true,
       onClick: () => {
         if (window.confirm(`Excluir o cargo "${role.name}"?`)) void deps.deleteRole(server.id, role.id).then(() => reopen?.());
@@ -385,7 +385,7 @@ export const buildChannelMenu = (deps: MenuDeps, options: ChannelMenuOptions): C
   const items: ContextMenuItem[] = [
     {
       label: 'Abrir canal',
-      icon: isVoice ? <Volume2 className="w-4 h-4" /> : <Hash className="w-4 h-4" />,
+      icon: isVoice ? <SpeakerHigh className="w-4 h-4" /> : <Hash className="w-4 h-4" />,
       onClick: () => deps.setActiveChannelId(channel.id),
     },
   ];
@@ -393,7 +393,7 @@ export const buildChannelMenu = (deps: MenuDeps, options: ChannelMenuOptions): C
   if (isVoice && hasPerm(PERMISSIONS.CONNECT)) {
     items.push({
       label: 'Entrar',
-      icon: <Volume2 className="w-4 h-4" />,
+      icon: <SpeakerHigh className="w-4 h-4" />,
       onClick: () => deps.startCall('voice', channel.id, channel.name),
     });
   }
@@ -410,12 +410,12 @@ export const buildChannelMenu = (deps: MenuDeps, options: ChannelMenuOptions): C
     items.push({ divider: true });
     items.push({
       label: 'Editar canal',
-      icon: <Pencil className="w-4 h-4" />,
+      icon: <PencilSimple className="w-4 h-4" />,
       onClick: () => deps.openModal('edit-channel', undefined, channel.id),
     });
     items.push({
       label: 'Alterar nome',
-      icon: <Pencil className="w-4 h-4" />,
+      icon: <PencilSimple className="w-4 h-4" />,
       onClick: () => {
         const name = window.prompt('Novo nome do canal:', channel.name);
         const clean = name && slugify(name);
@@ -432,7 +432,7 @@ export const buildChannelMenu = (deps: MenuDeps, options: ChannelMenuOptions): C
     });
     items.push({
       label: 'Permissoes do canal',
-      icon: <SettingsIcon className="w-4 h-4" />,
+      icon: <GearSix className="w-4 h-4" />,
       onClick: () => deps.openModal('edit-channel', undefined, channel.id),
     });
     items.push({ divider: true });
@@ -454,7 +454,7 @@ export const buildChannelMenu = (deps: MenuDeps, options: ChannelMenuOptions): C
     items.push({ divider: true });
     items.push({
       label: 'Excluir canal',
-      icon: <Trash2 className="w-4 h-4" />,
+      icon: <TrashSimple className="w-4 h-4" />,
       danger: true,
       onClick: () => {
         if (window.confirm(`Excluir o canal #${channel.name}?`)) deps.deleteChannel(server.id, channel.id);
@@ -492,12 +492,12 @@ export const buildCategoryMenu = (deps: MenuDeps, options: CategoryMenuOptions):
     items.push(
       {
         label: 'Editar categoria',
-        icon: <Pencil className="w-4 h-4" />,
+        icon: <PencilSimple className="w-4 h-4" />,
         onClick: () => deps.openServerTab(server.id, 'channels'),
       },
       {
         label: 'Alterar nome',
-        icon: <Pencil className="w-4 h-4" />,
+        icon: <PencilSimple className="w-4 h-4" />,
         onClick: () => {
           const name = window.prompt('Novo nome da categoria:', category.name);
           if (name && name.trim()) void deps.updateChannelRow(category.id, { name: name.trim() });
@@ -513,7 +513,7 @@ export const buildCategoryMenu = (deps: MenuDeps, options: CategoryMenuOptions):
       },
       {
         label: 'Criar canal de voz',
-        icon: <Volume2 className="w-4 h-4" />,
+        icon: <SpeakerHigh className="w-4 h-4" />,
         onClick: () => deps.openModal('create-channel', undefined, { parentId: category.id, type: 'voice' }),
       },
       {
@@ -525,7 +525,7 @@ export const buildCategoryMenu = (deps: MenuDeps, options: CategoryMenuOptions):
     items.push({ divider: true });
     items.push({
       label: 'Excluir categoria',
-      icon: <Trash2 className="w-4 h-4" />,
+      icon: <TrashSimple className="w-4 h-4" />,
       danger: true,
       onClick: () => {
         if (window.confirm(`Excluir a categoria "${category.name}"? Os canais dela serao movidos para "Sem categoria".`)) {
@@ -563,7 +563,7 @@ export const buildMessageMenu = (deps: MenuDeps, options: MessageMenuOptions): C
   const items: ContextMenuItem[] = [
     {
       label: 'Responder',
-      icon: <Reply className="w-4 h-4" />,
+      icon: <ArrowBendUpLeft className="w-4 h-4" />,
       onClick: () => onReply(message),
     },
   ];
@@ -572,7 +572,7 @@ export const buildMessageMenu = (deps: MenuDeps, options: MessageMenuOptions): C
     items.push({ divider: true });
     items.push({
       label: 'Editar',
-      icon: <Pencil className="w-4 h-4" />,
+      icon: <PencilSimple className="w-4 h-4" />,
       onClick: () => {
         const text = window.prompt('Editar mensagem:', message.content);
         if (text !== null && text.trim()) void deps.editMessage(message.id, text.trim());
@@ -583,7 +583,7 @@ export const buildMessageMenu = (deps: MenuDeps, options: MessageMenuOptions): C
   if (isOwn || (!isDM && canManageMessages)) {
     items.push({
       label: 'Excluir',
-      icon: <Trash2 className="w-4 h-4" />,
+      icon: <TrashSimple className="w-4 h-4" />,
       danger: true,
       onClick: () => {
         if (window.confirm('Excluir esta mensagem?')) void deps.deleteMessage(message.id);
@@ -609,7 +609,7 @@ export const buildMessageMenu = (deps: MenuDeps, options: MessageMenuOptions): C
   items.push(
     {
       label: 'Ver perfil',
-      icon: <UserCircle2 className="w-4 h-4" />,
+      icon: <UserCircle className="w-4 h-4" />,
       onClick: () => deps.openModal('profile-view', author),
     },
     {
@@ -649,7 +649,7 @@ export const buildServerMenu = (deps: MenuDeps, options: ServerMenuOptions): Con
     },
     {
       label: 'Configuracoes do grupo',
-      icon: <SettingsIcon className="w-4 h-4" />,
+      icon: <GearSix className="w-4 h-4" />,
       onClick: () => deps.openSettings('Servidores', server.id),
     },
     {
@@ -680,7 +680,7 @@ export const buildServerMenu = (deps: MenuDeps, options: ServerMenuOptions): Con
   if (isOwner || hasPerm(PERMISSIONS.VIEW_AUDIT_LOG) || hasPerm(PERMISSIONS.MANAGE_SERVER)) {
     items.push({
       label: 'Ver logs',
-      icon: <ClipboardList className="w-4 h-4" />,
+      icon: <ClipboardText className="w-4 h-4" />,
       onClick: () => deps.openServerTab(server.id, 'logs'),
     });
   }
@@ -688,7 +688,7 @@ export const buildServerMenu = (deps: MenuDeps, options: ServerMenuOptions): Con
   items.push({ divider: true });
   items.push({
     label: isOwner ? 'Excluir grupo' : 'Sair do grupo',
-    icon: <LogOut className="w-4 h-4" />,
+    icon: <SignOut className="w-4 h-4" />,
     danger: true,
     onClick: () => {
       if (window.confirm(isOwner ? `Excluir permanentemente o grupo "${server.name}"?` : `Sair do grupo "${server.name}"?`)) {
@@ -720,12 +720,12 @@ export const buildDmMenu = (deps: MenuDeps, options: DmMenuOptions): ContextMenu
   return [
     {
       label: 'Abrir conversa',
-      icon: <MessageSquare className="w-4 h-4" />,
+      icon: <ChatCircleDots className="w-4 h-4" />,
       onClick: () => deps.setActiveDmId(dm.id),
     },
     {
       label: 'Ver perfil',
-      icon: <UserCircle2 className="w-4 h-4" />,
+      icon: <UserCircle className="w-4 h-4" />,
       onClick: () => deps.openModal('profile-view', user),
     },
     { divider: true },
@@ -736,13 +736,13 @@ export const buildDmMenu = (deps: MenuDeps, options: DmMenuOptions): ContextMenu
     },
     {
       label: 'Chamada de video',
-      icon: <Video className="w-4 h-4" />,
+      icon: <VideoCamera className="w-4 h-4" />,
       onClick: () => deps.startCall('video', dm.id, user.displayName, false, user.avatar),
     },
     { divider: true },
     {
       label: 'Bloquear',
-      icon: <Ban className="w-4 h-4" />,
+      icon: <Prohibit className="w-4 h-4" />,
       danger: true,
       onClick: () => {
         if (window.confirm(`Bloquear ${user.displayName}?`)) void deps.blockUser(user.id);

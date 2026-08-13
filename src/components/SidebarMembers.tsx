@@ -4,12 +4,14 @@ import type { ServerMember } from '../context/AppContext';
 import { useContextMenu } from './ContextMenu';
 import { buildUserMenu } from '../lib/contextActions';
 import { supabase } from '../lib/supabase';
+import { Crown } from '@phosphor-icons/react';
+import { TransmitMeter } from './SharedUI';
 
-const statusColor = (status: string) =>
-  status === 'online' ? 'bg-discordex-success' :
-  status === 'idle' ? 'bg-discordex-warning' :
-  status === 'dnd' ? 'bg-discordex-danger' :
-  'bg-discordex-text-secondary';
+const statusHalo = (status: string) =>
+  status === 'online' ? 'bg-signal-success shadow-[0_0_5px_rgba(79,178,134,0.7)]' :
+  status === 'idle' ? 'bg-signal-warning shadow-[0_0_5px_rgba(226,133,59,0.7)]' :
+  status === 'dnd' ? 'bg-signal-danger shadow-[0_0_5px_rgba(217,96,75,0.7)]' :
+  'bg-signal-text-secondary';
 
 export const SidebarMembers: React.FC = () => {
   const app = useApp();
@@ -19,6 +21,7 @@ export const SidebarMembers: React.FC = () => {
     openModal,
     currentUser,
     servers,
+    callState,
   } = app;
 
   const { openMenu } = useContextMenu();
@@ -33,6 +36,10 @@ export const SidebarMembers: React.FC = () => {
 
   const online = members.filter((m) => m.profile.status !== 'offline');
   const offline = members.filter((m) => m.profile.status === 'offline');
+
+  const speakingUserIds = new Set(
+    callState.isActive ? callState.participants.filter(p => p.isSpeaking).map(p => p.id) : []
+  );
 
   const roleGroups: { name: string | null; color?: string; members: ServerMember[] }[] = [];
   const roleMap = new Map<string, { name: string; color: string; members: ServerMember[] }>();
@@ -105,6 +112,8 @@ export const SidebarMembers: React.FC = () => {
   const MemberItem: React.FC<{ member: ServerMember }> = ({ member }) => {
     const topRole = member.roles[0];
     const displayName = member.nickname || member.profile.displayName;
+    const isOwner = activeServer?.ownerId === member.userId;
+    const isSpeaking = speakingUserIds.has(member.userId);
     return (
       <div
         onClick={() => openModal('profile-view', { ...member.profile, role: (topRole?.name as ServerMember['profile']['role']) || undefined })}
@@ -112,21 +121,26 @@ export const SidebarMembers: React.FC = () => {
           lastMenuPosRef.current = { x: event.clientX, y: event.clientY };
           openMemberMenu(member, event.clientX, event.clientY, true);
         }}
-        className="flex items-center gap-2 px-2 py-1.5 rounded-xl cursor-pointer hover:bg-discordex-surface/60 transition-colors group"
+        className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-signal-surface/60 transition-colors group"
       >
-        <div className="relative shrink-0">
-          <img
-            src={member.profile.avatar}
-            alt={displayName}
-            className={`w-8 h-8 rounded-full object-cover border ${topRole?.color ? '' : 'border-discordex-border/40'}`}
-            style={topRole?.color ? { borderColor: topRole.color } : undefined}
-          />
-          <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-discordex-bg ${statusColor(member.profile.status)}`} />
+        <div className="relative shrink-0 flex items-center gap-1">
+          <div className="relative">
+            <img
+              src={member.profile.avatar}
+              alt={displayName}
+              className={`w-8 h-8 rounded-full object-cover border ${topRole?.color ? '' : 'border-signal-border/40'}`}
+              style={topRole?.color ? { borderColor: topRole.color } : undefined}
+            />
+            {/* Status com halo curto */}
+            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-signal-bg ${statusHalo(member.profile.status)}`} />
+          </div>
+          {isSpeaking && <TransmitMeter bars={3} className="h-2" />}
         </div>
 
         <div className="min-w-0 flex-1">
-          <span className="block text-xs font-semibold text-discordex-text-secondary group-hover:text-discordex-text-primary truncate transition-colors">
+          <span className="block text-xs font-semibold text-signal-text-secondary group-hover:text-signal-text-primary truncate transition-colors">
             {displayName}
+            {isOwner && <Crown className="w-3 h-3 text-signal-warning inline-block ml-1 -mt-0.5" weight="fill" />}
           </span>
           {topRole && (
             <span
@@ -142,15 +156,20 @@ export const SidebarMembers: React.FC = () => {
   };
 
   return (
-    <div className="w-56 bg-discordex-secondary flex flex-col shrink-0 h-full border-l border-discordex-border/40 select-none p-3 overflow-y-auto no-scrollbar">
+    <div className="w-56 bg-signal-secondary flex flex-col shrink-0 h-full border-l border-signal-border/40 select-none p-3 overflow-y-auto no-scrollbar">
+
+      {/* Sinal ativo — contagem em Plex Mono */}
+      <h4 className="px-2 mb-2 text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider font-mono">
+        ONLINE — {online.length}
+      </h4>
 
       {roleGroups.map((group, index) => (
-        <div key={group.name ?? `__norole__${index}`} className="mb-5 space-y-1">
+        <div key={group.name ?? `__norole__${index}`} className="mb-3 space-y-1">
           <h4
             className="px-2 text-[10px] font-bold uppercase tracking-wider"
-            style={{ color: group.color || 'var(--tw-text-secondary, #A8A8B3)' }}
+            style={{ color: group.color || '#93A69B' }}
           >
-            {group.name ?? 'Sem cargo'} — {group.members.length}
+            {group.name ?? 'Sem cargo'}
           </h4>
           <div className="space-y-0.5">
             {group.members.map((member) => (
@@ -161,16 +180,16 @@ export const SidebarMembers: React.FC = () => {
       ))}
 
       {online.length === 0 && offline.length === 0 && (
-        <div className="px-2 text-xs text-discordex-text-secondary/50 italic">
+        <div className="px-2 text-xs text-signal-text-secondary/50 italic">
           Nenhum membro por aqui.
         </div>
       )}
 
-      {/* Offline Category */}
+      {/* Offline */}
       {offline.length > 0 && (
         <div className="space-y-1">
-          <h4 className="px-2 text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider">
-            Offline — {offline.length}
+          <h4 className="px-2 text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider font-mono">
+            OFFLINE — {offline.length}
           </h4>
           <div className="space-y-0.5">
             {offline.map((member) => (
@@ -182,14 +201,14 @@ export const SidebarMembers: React.FC = () => {
 
       {currentUser && (
         <div className="mt-auto pt-4">
-          <div className="px-2 py-1.5 rounded-xl bg-discordex-surface/40 border border-discordex-border/40 flex items-center gap-2">
+          <div className="px-2 py-1.5 rounded-md bg-signal-surface/40 border border-signal-border/40 flex items-center gap-2">
             <div className="relative shrink-0">
               <img src={currentUser.avatar} alt={currentUser.displayName} className="w-8 h-8 rounded-full object-cover" />
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-discordex-bg bg-discordex-success" />
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-signal-bg bg-signal-success shadow-[0_0_4px_rgba(79,178,134,0.6)]" />
             </div>
             <div className="min-w-0">
-              <span className="block text-xs font-bold text-discordex-text-primary truncate">{currentUser.displayName}</span>
-              <span className="block text-[9px] text-discordex-text-secondary truncate">@{currentUser.username}</span>
+              <span className="block text-xs font-bold text-signal-text-primary truncate">{currentUser.displayName}</span>
+              <span className="block text-[9px] text-signal-text-secondary truncate font-mono">@{currentUser.username}</span>
             </div>
           </div>
         </div>

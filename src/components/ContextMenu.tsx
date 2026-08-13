@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, CaretRight } from '@phosphor-icons/react';
 
 export interface ContextMenuItem {
   label?: string;
@@ -53,11 +53,11 @@ const MenuList: React.FC<{ items: ContextMenuItem[]; onClose: () => void }> = ({
   return (
     <div
       ref={containerRef}
-      className="relative min-w-[200px] max-w-[260px] bg-discordex-surface border border-discordex-border rounded-xl p-1.5 shadow-2xl animate-fade-in"
+      className="relative min-w-[200px] max-w-[260px] bg-signal-surface border border-signal-border rounded-md p-1.5 shadow-float-lg animate-fade-in"
     >
       {items.map((item, index) => (
         <React.Fragment key={index}>
-          {item.divider && <div className="h-px bg-discordex-border my-1" />}
+          {item.divider && <div className="h-px bg-signal-border my-1" />}
           {item.label !== undefined && item.label !== '' && (
             <div className="relative" onMouseEnter={() => handleEnter(index, item)}>
               <button
@@ -66,18 +66,18 @@ const MenuList: React.FC<{ items: ContextMenuItem[]; onClose: () => void }> = ({
                   if (!item.submenu && !item.keepOpen) onClose();
                   item.onClick?.();
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-semibold transition-colors text-left ${
                   item.danger
-                    ? 'text-discordex-danger hover:bg-discordex-danger/10'
+                    ? 'text-signal-danger hover:bg-signal-danger/10'
                     : item.success
-                      ? 'text-discordex-success hover:bg-discordex-success/10'
-                      : 'text-discordex-text-primary hover:bg-discordex-hover'
+                      ? 'text-signal-success hover:bg-signal-success/10'
+                      : 'text-signal-text-primary hover:bg-brass hover:text-signal-bg'
                 } ${item.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {item.icon}
                 <span className="truncate flex-1">{item.label}</span>
-                {item.checked && <Check className="w-4 h-4 shrink-0" />}
-                {item.submenu && <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />}
+                {item.checked && <Check className="w-4 h-4 shrink-0" weight="bold" />}
+                {item.submenu && <CaretRight className="w-4 h-4 shrink-0 opacity-70" />}
               </button>
               {openIndex === index && item.submenu && (
                 <div

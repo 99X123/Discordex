@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import type { User } from '../context/AppContext';
-import { 
-  Hash, Volume2, Search, Send, Smile, CornerDownLeft, 
-  Video, Phone, ArrowLeft, ImagePlus, Loader2
-} from 'lucide-react';
-import { Tooltip } from './SharedUI';
+import {
+  Hash, Waveform, MagnifyingGlass, PaperPlaneTilt, Smiley, ArrowBendUpLeft,
+  VideoCamera, Phone, ArrowLeft, ImageSquare, CircleNotch
+} from '@phosphor-icons/react';
+import { Tooltip, TransmitMeter } from './SharedUI';
 import { useContextMenu } from './ContextMenu';
 import { supabase } from '../lib/supabase';
 import { PERMISSIONS, hasPermission } from '../lib/permissions';
 import { buildMessageMenu } from '../lib/contextActions';
+import { channelFrequency } from '../lib/station';
 
 const isImageLine = (line: string): boolean => {
   const t = line.trim();
@@ -50,7 +51,7 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  // Retrieve current chat container context
+  // Contexto do chat ativo
   let chatTitle = '';
   let chatDesc = '';
   let isVoiceChannel = false;
@@ -77,10 +78,14 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
 
   const currentMessages = messages[activeChatId] || [];
 
-  // Scroll to bottom when messages load/change
+  // Rolagem automática
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentMessages, activeChannelId, activeDmId]);
+
+  const speakingUserIds = new Set(
+    callState.isActive ? callState.participants.filter(p => p.isSpeaking).map(p => p.id) : []
+  );
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +146,7 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
             src={line.trim()}
             alt="Imagem"
             loading="lazy"
-            className="max-w-sm max-h-96 rounded-xl border border-discordex-border my-1 object-contain"
+            className="max-w-sm max-h-96 rounded-md border border-signal-border my-1 object-contain"
           />
         );
       }
@@ -170,8 +175,8 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
     }
   };
 
-  const filteredMessages = currentMessages.filter(msg => 
-    msg.content.toLowerCase().includes(searchVal.toLowerCase()) || 
+  const filteredMessages = currentMessages.filter(msg =>
+    msg.content.toLowerCase().includes(searchVal.toLowerCase()) ||
     msg.userName.toLowerCase().includes(searchVal.toLowerCase())
   );
 
@@ -180,117 +185,124 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
   const canManageMessages = messagePerms.isOwner || hasPermission(messagePerms.permissions, PERMISSIONS.MANAGE_MESSAGES);
 
   return (
-    <div className="flex-1 bg-discordex-bg flex flex-col min-w-0 h-full relative">
-      
-      {/* Top Header */}
-      <div className="h-12 px-4 border-b border-discordex-border flex items-center justify-between shrink-0 shadow-sm">
-        
-        {/* Title Info */}
+    <div className="flex-1 bg-signal-bg flex flex-col min-w-0 h-full relative">
+
+      {/* Header */}
+      <div className="h-12 px-4 border-b border-signal-border flex items-center justify-between shrink-0 shadow-sm">
+
+        {/* Informações do título */}
         <div className="flex items-center gap-2 min-w-0">
-          {/* Mobile Back to Servers Button */}
-          <button 
+          {/* Voltar (mobile) */}
+          <button
             onClick={() => {
               if (onToggleSidebar) onToggleSidebar();
             }}
-            className="md:hidden p-1.5 rounded-lg text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-surface transition-colors"
+            className="md:hidden p-1.5 rounded-md text-signal-text-secondary hover:text-signal-text-primary hover:bg-signal-surface transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
 
           {activeServerId ? (
             isVoiceChannel ? (
-              <Volume2 className="w-5 h-5 text-discordex-text-secondary" />
+              <Waveform className="w-5 h-5 text-signal-text-secondary" />
             ) : (
-              <Hash className="w-5 h-5 text-discordex-text-secondary" />
+              <Hash className="w-5 h-5 text-signal-text-secondary" />
             )
           ) : (
-            <div className="w-2.5 h-2.5 rounded-full bg-discordex-success shrink-0" />
+            <div className="w-2.5 h-2.5 rounded-full bg-signal-success shrink-0 shadow-[0_0_5px_rgba(79,178,134,0.7)]" />
           )}
-          <span className="font-bold text-[14px] text-discordex-text-primary truncate">
+          <span className="font-display font-bold text-[14px] text-signal-text-primary truncate">
             {chatTitle || 'Selecione um canal'}
           </span>
+          {isVoiceChannel && (
+            <span className="font-mono text-[10px] text-signal-text-secondary/70 tabular-nums">
+              {activeChatId ? channelFrequency(activeChatId) : ''}
+            </span>
+          )}
           {chatDesc && (
             <>
-              <div className="w-[1px] h-4 bg-discordex-border mx-1 shrink-0" />
-              <span className="text-xs text-discordex-text-secondary truncate font-normal">
+              <div className="w-[1px] h-4 bg-signal-border mx-1 shrink-0" />
+              <span className="text-xs text-signal-text-secondary truncate font-normal">
                 {chatDesc}
               </span>
             </>
           )}
         </div>
 
-        {/* Header Controls */}
+        {/* Controles do header */}
         <div className="flex items-center gap-3">
-          
-          {/* Voice/Video shortcuts */}
+
+          {/* Console de chamada */}
           {(isVoiceChannel || activeDmId) && !callState.isActive && (
-            <div className="flex items-center gap-1 bg-discordex-surface border border-discordex-border p-0.5 rounded-xl">
+            <div className="flex items-center gap-0.5 bg-signal-surface border border-signal-border p-0.5 rounded-md">
               <Tooltip content="Iniciar chamada de Voz" position="bottom">
-                <button 
+                <button
                   onClick={() => handleTriggerCall('voice')}
-                  className="p-1.5 rounded-lg text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-hover transition-colors"
+                  className="p-1.5 rounded-md text-signal-text-secondary hover:text-signal-text-primary hover:bg-signal-hover transition-colors"
                 >
                   <Phone className="w-4 h-4" />
                 </button>
               </Tooltip>
               <Tooltip content="Iniciar chamada de Vídeo" position="bottom">
-                <button 
+                <button
                   onClick={() => handleTriggerCall('video')}
-                  className="p-1.5 rounded-lg text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-discordex-hover transition-colors"
+                  className="p-1.5 rounded-md text-signal-text-secondary hover:text-signal-text-primary hover:bg-signal-hover transition-colors"
                 >
-                  <Video className="w-4 h-4" />
+                  <VideoCamera className="w-4 h-4" />
                 </button>
               </Tooltip>
             </div>
           )}
 
-          {/* Search box */}
+          {/* Busca — tom de console */}
           <div className="relative hidden sm:block">
-            <input 
-              type="text" 
-              placeholder="Buscar" 
+            <input
+              type="text"
+              placeholder="> buscar…"
               value={searchVal}
               onChange={(e) => setSearchVal(e.target.value)}
-              className="w-40 focus:w-56 px-3 py-1.5 pr-8 bg-discordex-secondary border border-discordex-border rounded-xl text-xs text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-all duration-200"
+              className="w-40 focus:w-56 px-3 py-1.5 pr-8 bg-signal-secondary border border-signal-border rounded-md text-xs font-mono text-signal-text-primary placeholder:text-signal-text-secondary/40 focus:outline-none focus:border-brass transition-all duration-200"
             />
-            <Search className="w-3.5 h-3.5 text-discordex-text-secondary/50 absolute right-2.5 top-1/2 -translate-y-1/2" />
+            <MagnifyingGlass className="w-3.5 h-3.5 text-signal-text-secondary/50 absolute right-2.5 top-1/2 -translate-y-1/2" />
           </div>
 
         </div>
       </div>
 
-      {/* Messages / Call View area */}
+      {/* Área de mensagens */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        
-        {/* If Voice Channel & not in call, show join prompt */}
+
+        {/* Prompt de entrada em canal de voz */}
         {isVoiceChannel && !callState.isActive && (
-          <div className="max-w-md mx-auto my-12 bg-discordex-surface border border-discordex-border rounded-2xl p-6 text-center space-y-4 shadow-xl">
-            <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
-              <Volume2 className="w-7 h-7" />
+          <div className="max-w-md mx-auto my-12 bg-signal-surface border border-signal-border panel-cut p-6 text-center space-y-4 shadow-float-lg">
+            <div className="w-14 h-14 bg-brass/10 rounded-full flex items-center justify-center mx-auto text-brass">
+              <Waveform className="w-7 h-7" />
             </div>
             <div className="space-y-1.5">
-              <h3 className="text-lg font-bold text-discordex-text-primary">Canal de Voz: {chatTitle}</h3>
-              <p className="text-xs text-discordex-text-secondary max-w-sm mx-auto leading-relaxed">
+              <h3 className="text-lg font-display font-bold text-signal-text-primary">
+                Frequência {activeChatId ? channelFrequency(activeChatId) : ''} — {chatTitle}
+              </h3>
+              <p className="text-xs text-signal-text-secondary max-w-sm mx-auto leading-relaxed">
                 Você pode entrar para conversar por voz, compartilhar sua tela, ou ligar sua câmera de vídeo.
               </p>
             </div>
-            <button 
+            <button
               onClick={() => handleTriggerCall('voice')}
-              className="px-6 py-3 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-semibold transition-colors"
+              className="px-6 py-3 bg-brass hover:bg-brass-hover text-signal-bg rounded-md text-sm font-bold transition-colors"
             >
-              Entrar no Canal de Voz
+              Entrar na frequência
             </button>
           </div>
         )}
 
-        {/* Regular Message Feed */}
+        {/* Feed de mensagens */}
         {(!isVoiceChannel || callState.isActive) && (
           <>
             {filteredMessages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 opacity-60">
-                <span className="text-3xl">💬</span>
-                <p className="text-sm font-bold text-discordex-text-primary">Nenhuma mensagem por aqui</p>
-                <p className="text-xs text-discordex-text-secondary">Seja o primeiro a enviar uma mensagem neste canal!</p>
+                <span className="text-3xl">📻</span>
+                <p className="text-sm font-bold text-signal-text-primary">Nenhuma transmissão por aqui</p>
+                <p className="text-xs text-signal-text-secondary">Seja o primeiro a transmitir neste canal!</p>
               </div>
             ) : (
               filteredMessages.map((msg) => {
@@ -302,6 +314,7 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
                   status: 'online',
                   role: msg.userRole as User['role']
                 };
+                const isSenderSpeaking = speakingUserIds.has(msg.userId);
 
                 return (
                   <div
@@ -316,74 +329,79 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
                         onReply: (message) => setReplyTarget({ userName: message.userName, content: message.content }),
                       })
                     )}
-                    className="group relative flex flex-col gap-1 hover:bg-discordex-surface/20 -mx-4 px-4 py-2 rounded-xl transition-colors"
+                    className="group relative flex flex-col gap-1 hover:bg-signal-surface/20 -mx-4 px-4 py-2 rounded-md transition-colors"
                   >
-                    
-                    {/* Reply quote indicator header */}
+
+                    {/* Cabeçalho de resposta */}
                     {msg.replyTo && (
-                      <div className="flex items-center gap-1.5 text-xs text-discordex-text-secondary/70 pl-9 mb-1">
-                        <CornerDownLeft className="w-3.5 h-3.5 text-discordex-text-secondary/40" />
-                        <span className="font-semibold text-discordex-text-secondary">
+                      <div className="flex items-center gap-1.5 text-xs text-signal-text-secondary/70 pl-9 mb-1">
+                        <ArrowBendUpLeft className="w-3.5 h-3.5 text-signal-text-secondary/40" />
+                        <span className="font-semibold text-signal-text-secondary">
                           @{msg.replyTo.userName}
                         </span>
                         <span className="truncate max-w-xs">{msg.replyTo.content}</span>
                       </div>
                     )}
 
-                    {/* Standard Body */}
+                    {/* Corpo padrão */}
                     <div className="flex gap-3">
-                      
-                      {/* Avatar */}
-                      <button 
+
+                      {/* Avatar (pessoa = círculo) */}
+                      <button
                         onClick={() => openModal('profile-view', senderUserObj)}
-                        className="shrink-0 focus:outline-none"
+                        className="shrink-0 focus:outline-none relative self-start"
                       >
-                        <img 
-                          src={msg.userAvatar} 
-                          alt={msg.userName} 
-                          className="w-9 h-9 rounded-full object-cover border border-discordex-border/40"
+                        <img
+                          src={msg.userAvatar}
+                          alt={msg.userName}
+                          className="w-9 h-9 rounded-full object-cover border border-signal-border/40"
                         />
+                        {isSenderSpeaking && (
+                          <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2">
+                            <TransmitMeter bars={4} className="h-2" />
+                          </span>
+                        )}
                       </button>
 
-                      {/* Main Message Block */}
+                      {/* Bloco principal da mensagem */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <button 
+                          <button
                             onClick={() => openModal('profile-view', senderUserObj)}
-                            className="font-bold text-xs text-discordex-text-primary hover:underline hover:text-primary transition-colors text-left"
+                            className="font-bold text-xs text-signal-text-primary hover:underline hover:text-brass transition-colors text-left"
                           >
                             {msg.userName}
                           </button>
-                          
-                          {/* Role Badge */}
+
+                          {/* Badge de cargo */}
                           {msg.userRole && (
                             <span
-                              className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                              className="px-1.5 py-0.5 rounded-md text-[9px] font-bold"
                               style={msg.userRoleColor ? { color: msg.userRoleColor, backgroundColor: `${msg.userRoleColor}1A` } : undefined}
                             >
                               {msg.userRole}
                             </span>
                           )}
 
-                          <span className="text-[10px] text-discordex-text-secondary/60">
+                          <span className="text-[10px] text-signal-text-secondary/60 font-mono">
                             {msg.timestamp}
                           </span>
                         </div>
-                        <div className="text-xs text-discordex-text-secondary leading-relaxed whitespace-pre-wrap">
+                        <div className="text-xs text-signal-text-secondary leading-relaxed whitespace-pre-wrap">
                           {renderMessageContent(msg.content)}
                         </div>
 
-                        {/* Reactions list */}
+                        {/* Reações */}
                         {msg.reactions && msg.reactions.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {msg.reactions.map(react => (
                               <button
                                 key={react.emoji}
                                 onClick={() => handleReactionClick(msg.id, react.emoji)}
-                                className={`px-2 py-0.5 rounded-lg border text-xs font-semibold flex items-center gap-1 transition-all ${
-                                  react.userReacted 
-                                    ? 'bg-primary/10 border-primary text-primary' 
-                                    : 'bg-discordex-surface border-discordex-border text-discordex-text-secondary hover:border-discordex-text-primary'
+                                className={`px-2 py-0.5 rounded-md border text-xs font-semibold flex items-center gap-1 transition-all ${
+                                  react.userReacted
+                                    ? 'bg-brass/10 border-brass text-brass'
+                                    : 'bg-signal-surface border-signal-border text-signal-text-secondary hover:border-signal-text-primary'
                                 }`}
                               >
                                 <span>{react.emoji}</span>
@@ -396,25 +414,25 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
 
                     </div>
 
-                    {/* Toolbar overlays */}
-                    <div className="absolute right-4 -top-3.5 opacity-0 group-hover:opacity-100 transition-opacity bg-discordex-surface border border-discordex-border rounded-xl flex items-center p-0.5 shadow-xl z-20">
-                      
-                      {/* React options */}
+                    {/* Toolbar de hover */}
+                    <div className="absolute right-4 -top-3.5 opacity-0 group-hover:opacity-100 transition-opacity glass-panel rounded-md flex items-center p-0.5 shadow-float-lg z-20">
+
+                      {/* Opções de reação */}
                       {['👍', '❤️', '😂', '🔥', '🚀'].map(emoji => (
                         <button
                           key={emoji}
                           onClick={() => handleReactionClick(msg.id, emoji)}
-                          className="p-1.5 hover:bg-discordex-hover rounded-lg text-xs transition-colors"
+                          className="p-1.5 hover:bg-signal-hover rounded-md text-xs transition-colors"
                         >
                           {emoji}
                         </button>
                       ))}
-                      
-                      <div className="w-[1px] h-4 bg-discordex-border mx-1" />
+
+                      <div className="w-[1px] h-4 bg-signal-border mx-1" />
 
                       <button
                         onClick={() => setReplyTarget({ userName: msg.userName, content: msg.content })}
-                        className="px-2 py-1.5 text-[10px] font-bold text-discordex-text-secondary hover:text-discordex-text-primary rounded-lg transition-colors hover:bg-discordex-hover"
+                        className="px-2 py-1.5 text-[10px] font-bold text-signal-text-secondary hover:text-signal-text-primary rounded-md transition-colors hover:bg-signal-hover"
                       >
                         Responder
                       </button>
@@ -429,20 +447,20 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
         )}
       </div>
 
-      {/* Input Message Composers */}
+      {/* Console de envio */}
       {(!isVoiceChannel || callState.isActive) && activeChatId && (
-        <div className="p-4 border-t border-discordex-border bg-discordex-bg shrink-0">
-          
-          {/* Active Reply Banner */}
+        <div className="p-4 border-t border-signal-border bg-signal-bg shrink-0">
+
+          {/* Banner de resposta ativa */}
           {replyTarget && (
-            <div className="flex items-center justify-between bg-discordex-surface border border-discordex-border px-4 py-2 rounded-t-xl text-xs -mb-1 animate-fade-in border-b-0">
-              <div className="flex items-center gap-1.5 text-discordex-text-secondary">
+            <div className="flex items-center justify-between bg-signal-surface border border-signal-border px-4 py-2 rounded-t-md text-xs -mb-1 animate-fade-in border-b-0">
+              <div className="flex items-center gap-1.5 text-signal-text-secondary">
                 <span>Respondendo a</span>
-                <span className="font-bold text-discordex-text-primary">@{replyTarget.userName}</span>
+                <span className="font-bold text-signal-text-primary">@{replyTarget.userName}</span>
               </div>
-              <button 
+              <button
                 onClick={() => setReplyTarget(null)}
-                className="text-discordex-text-secondary hover:text-discordex-text-primary"
+                className="text-signal-text-secondary hover:text-signal-text-primary"
               >
                 Cancelar
               </button>
@@ -450,17 +468,17 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
           )}
 
           <form onSubmit={handleSend} className="relative">
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
-              placeholder={`Escreva uma mensagem em #${chatTitle || ''}...`}
-              className={`w-full px-4 pl-10 py-3 bg-discordex-secondary border border-discordex-border text-xs text-discordex-text-primary placeholder:text-discordex-text-secondary/40 focus:outline-none focus:border-primary transition-all pr-24 ${
-                replyTarget ? 'rounded-b-2xl' : 'rounded-2xl'
+              placeholder={`Transmitir em #${chatTitle || ''}…`}
+              className={`w-full px-4 pl-10 py-3 bg-signal-secondary border border-signal-border text-xs text-signal-text-primary placeholder:text-signal-text-secondary/40 focus:outline-none focus:border-brass transition-all pr-24 ${
+                replyTarget ? 'rounded-b-md' : 'rounded-md'
               }`}
             />
 
-            {/* Image upload */}
+            {/* Upload de imagem */}
             <input
               ref={imageInputRef}
               type="file"
@@ -472,32 +490,32 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
               type="button"
               onClick={() => imageInputRef.current?.click()}
               disabled={imageUploading}
-              className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 text-discordex-text-secondary hover:text-discordex-text-primary rounded-lg transition-colors disabled:opacity-50"
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 text-signal-text-secondary hover:text-signal-text-primary rounded-md transition-colors disabled:opacity-50"
             >
-              {imageUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
+              {imageUploading ? <CircleNotch className="w-5 h-5 animate-spin" /> : <ImageSquare className="w-5 h-5" />}
             </button>
 
-            {/* Inputs Tools icons */}
+            {/* Ferramentas */}
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              
-              {/* Emoji icon and picker */}
+
+              {/* Emoji */}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-1.5 text-discordex-text-secondary hover:text-discordex-text-primary rounded-lg transition-colors"
+                  className="p-1.5 text-signal-text-secondary hover:text-signal-text-primary rounded-md transition-colors"
                 >
-                  <Smile className="w-5 h-5" />
+                  <Smiley className="w-5 h-5" />
                 </button>
 
                 {showEmojiPicker && (
-                  <div className="absolute bottom-full right-0 mb-3 bg-discordex-surface border border-discordex-border p-2 rounded-2xl shadow-2xl flex gap-1 z-30 animate-slide-up">
+                  <div className="absolute bottom-full right-0 mb-3 bg-signal-surface border border-signal-border p-2 rounded-md shadow-float-lg flex gap-1 z-30 animate-slide-up">
                     {['👍', '❤️', '😂', '🔥', '🚀', '🎉', '💩', '👀'].map(emoji => (
                       <button
                         key={emoji}
                         type="button"
                         onClick={() => insertEmoji(emoji)}
-                        className="w-8 h-8 flex items-center justify-center hover:bg-discordex-hover rounded-xl text-lg transition-colors"
+                        className="w-8 h-8 flex items-center justify-center hover:bg-signal-hover rounded-md text-lg transition-colors"
                       >
                         {emoji}
                       </button>
@@ -506,13 +524,13 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
                 )}
               </div>
 
-              {/* Submit button */}
+              {/* Enviar */}
               <button
                 type="submit"
                 disabled={!inputVal.trim()}
-                className="p-1.5 bg-primary disabled:bg-primary/20 text-white rounded-lg transition-colors"
+                className="p-1.5 bg-brass disabled:bg-brass/20 text-signal-bg rounded-md transition-colors"
               >
-                <Send className="w-4 h-4" />
+                <PaperPlaneTilt className="w-4 h-4" />
               </button>
 
             </div>

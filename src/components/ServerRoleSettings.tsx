@@ -6,8 +6,8 @@ import { buildRoleMenu } from '../lib/contextActions';
 import { ALL_PERMISSIONS, hasPermission } from '../lib/permissions';
 import { getAuditLogs, AUDIT_ACTION_LABELS, type AuditLogRow } from '../services/roles';
 import {
-  Plus, Trash2, Save, Shield, Hash, Volume2, Users, Check, X, RefreshCw,
-} from 'lucide-react';
+  Plus, Trash, FloppyDisk, Shield, Hash, Waveform, Users, Check, X, ArrowsClockwise,
+} from '@phosphor-icons/react';
 
 const DEFAULT_ROLE_COLOR = '#99AAB5';
 const DEFAULT_ROLE_PERMS = 256 + 512 + 1024 + 2048;
@@ -121,14 +121,14 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-discordex-text-primary">Cargos</h2>
-          <p className="text-xs text-discordex-text-secondary mt-1">
+          <h2 className="text-xl font-display font-bold text-signal-text-primary">Cargos</h2>
+          <p className="text-xs text-signal-text-secondary mt-1">
             Cada grupo tem seus próprios cargos e permissões, totalmente configuráveis.
           </p>
         </div>
         <button
           onClick={() => void handleCreateRole()}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brass hover:bg-brass-hover text-signal-bg rounded-md text-xs font-bold transition-colors"
         >
           <Plus className="w-4 h-4" />
           Criar cargo
@@ -137,11 +137,11 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
 
       <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
         {/* Role list */}
-        <div className="bg-discordex-secondary border border-discordex-border rounded-2xl overflow-hidden self-start">
-          <div className="px-4 py-3 border-b border-discordex-border text-[10px] font-bold uppercase tracking-wider text-discordex-text-secondary">
+        <div className="bg-signal-secondary border border-signal-border rounded-md overflow-hidden self-start">
+          <div className="px-4 py-3 border-b border-signal-border text-[10px] font-bold uppercase tracking-wider text-signal-text-secondary">
             Cargos ({roles.length})
           </div>
-          <div className="divide-y divide-discordex-border/60">
+          <div className="divide-y divide-signal-border/60">
             {roles.map((role) => {
               const selected = role.id === selectedRoleId;
               return (
@@ -150,12 +150,12 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                   onClick={() => setSelectedRoleId(role.id)}
                   onContextMenu={(event) => openMenu(event, buildRoleMenu(app, { server, role }))}
                   className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors ${
-                    selected ? 'bg-discordex-surface text-discordex-text-primary' : 'hover:bg-discordex-surface/40 text-discordex-text-secondary'
+                    selected ? 'bg-signal-surface text-signal-text-primary' : 'hover:bg-signal-surface/40 text-signal-text-secondary'
                   }`}
                 >
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: role.color }} />
                   <span className="flex-1 min-w-0 truncate text-xs font-semibold">{role.name}</span>
-                  <span className="text-[9px] text-discordex-text-secondary shrink-0">{role.position}</span>
+                  <span className="text-[9px] text-signal-text-secondary shrink-0 font-mono">{role.position}</span>
                 </button>
               );
             })}
@@ -166,65 +166,65 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
         {selectedRole ? (
           <div className="space-y-6 min-w-0">
             {!canManageThisRole(selectedRole) ? (
-              <div className="text-xs rounded-xl border border-discordex-danger/30 bg-discordex-danger/10 text-discordex-danger px-4 py-3">
+              <div className="text-xs rounded-md border border-signal-danger/30 bg-signal-danger/10 text-signal-danger px-4 py-3">
                 Você não pode editar cargos iguais ou superiores ao seu (hierarquia).
               </div>
             ) : (
               <>
                 {/* Basics */}
-                <div className="bg-discordex-secondary border border-discordex-border rounded-2xl p-5 space-y-4">
+                <div className="bg-signal-secondary border border-signal-border rounded-md p-5 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-discordex-text-primary flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-discordex-text-secondary" />
+                    <h3 className="text-sm font-bold text-signal-text-primary flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-signal-text-secondary" />
                       Configurações do cargo
                     </h3>
                     <button
                       onClick={() => {
                         if (window.confirm(`Excluir o cargo "${selectedRole.name}"?`)) void deleteRole(server.id, selectedRole.id);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-discordex-danger hover:bg-discordex-danger/10 rounded-lg transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-signal-danger hover:bg-signal-danger/10 rounded-md transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash className="w-3.5 h-3.5" />
                       Excluir
                     </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-[1fr_90px_90px] gap-3">
                     <label className="block space-y-1.5">
-                      <span className="block text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider">Nome</span>
+                      <span className="block text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider">Nome</span>
                       <input
                         type="text"
                         value={name}
                         onChange={(event) => setName(event.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-discordex-bg border border-discordex-border rounded-xl text-xs text-discordex-text-primary focus:outline-none focus:border-primary"
+                        className="w-full px-3.5 py-2.5 bg-signal-bg border border-signal-border rounded-md text-xs text-signal-text-primary focus:outline-none focus:border-brass"
                       />
                     </label>
                     <label className="block space-y-1.5">
-                      <span className="block text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider">Cor</span>
+                      <span className="block text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider">Cor</span>
                       <input
                         type="color"
                         value={color}
                         onChange={(event) => setColor(event.target.value)}
-                        className="w-full h-[38px] bg-discordex-bg border border-discordex-border rounded-xl cursor-pointer"
+                        className="w-full h-[38px] bg-signal-bg border border-signal-border rounded-md cursor-pointer"
                       />
                     </label>
                     <label className="block space-y-1.5">
-                      <span className="block text-[10px] font-bold text-discordex-text-secondary uppercase tracking-wider">Posição</span>
+                      <span className="block text-[10px] font-bold text-signal-text-secondary uppercase tracking-wider">Posição</span>
                       <input
                         type="number"
                         value={position}
                         min={0}
                         onChange={(event) => setPosition(Math.max(0, Number(event.target.value) || 0))}
-                        className="w-full px-3.5 py-2.5 bg-discordex-bg border border-discordex-border rounded-xl text-xs text-discordex-text-primary focus:outline-none focus:border-primary"
+                        className="w-full px-3.5 py-2.5 bg-signal-bg border border-signal-border rounded-md text-xs text-signal-text-primary focus:outline-none focus:border-brass"
                       />
                     </label>
                   </div>
                 </div>
 
                 {/* Permissions */}
-                <div className="bg-discordex-secondary border border-discordex-border rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-discordex-text-primary flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-discordex-text-secondary" />
+                <div className="bg-signal-secondary border border-signal-border rounded-md p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-signal-text-primary flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-signal-text-secondary" />
                     Permissões
                   </h3>
                   <div className="space-y-1">
@@ -232,18 +232,18 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                       <button
                         key={permission.key}
                         onClick={() => togglePermission(permission.bit)}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left hover:bg-discordex-surface/50 transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-signal-surface/50 transition-colors"
                       >
                         <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
                           hasPermission(draftPermissions, permission.bit)
-                            ? 'bg-discordex-success border-discordex-success'
-                            : 'border-discordex-text-secondary/40'
+                            ? 'bg-signal-success border-signal-success'
+                            : 'border-signal-text-secondary/40'
                         }`}>
-                          {hasPermission(draftPermissions, permission.bit) && <Check className="w-3 h-3 text-white" />}
+                          {hasPermission(draftPermissions, permission.bit) && <Check className="w-3 h-3 text-signal-bg" />}
                         </span>
                         <span className="flex-1 min-w-0">
-                          <span className="block text-xs font-semibold text-discordex-text-primary">{permission.label}</span>
-                          <span className="block text-[10px] text-discordex-text-secondary truncate">{permission.description}</span>
+                          <span className="block text-xs font-semibold text-signal-text-primary">{permission.label}</span>
+                          <span className="block text-[10px] text-signal-text-secondary truncate">{permission.description}</span>
                         </span>
                       </button>
                     ))}
@@ -251,21 +251,21 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                 </div>
 
                 {/* Members */}
-                <div className="bg-discordex-secondary border border-discordex-border rounded-2xl p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-discordex-text-primary flex items-center gap-2">
-                    <Users className="w-4 h-4 text-discordex-text-secondary" />
+                <div className="bg-signal-secondary border border-signal-border rounded-md p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-signal-text-primary flex items-center gap-2">
+                    <Users className="w-4 h-4 text-signal-text-secondary" />
                     Membros com este cargo ({roleMembers.length})
                   </h3>
                   <div className="space-y-1.5">
                     {roleMembers.map((member) => (
-                      <div key={member.userId} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-discordex-bg border border-discordex-border/60">
+                      <div key={member.userId} className="flex items-center gap-3 px-3 py-2 rounded-md bg-signal-bg border border-signal-border/60">
                         <img src={member.profile.avatar} alt={member.profile.displayName} className="w-7 h-7 rounded-full object-cover" />
-                        <span className="flex-1 min-w-0 text-xs font-semibold text-discordex-text-primary truncate">
+                        <span className="flex-1 min-w-0 text-xs font-semibold text-signal-text-primary truncate">
                           {member.nickname || member.profile.displayName}
                         </span>
                         <button
                           onClick={() => void removeRoleFromMember(server.id, member.userId, selectedRole.id)}
-                          className="p-1.5 text-discordex-text-secondary hover:text-discordex-danger hover:bg-discordex-danger/10 rounded-lg transition-colors"
+                          className="p-1.5 text-signal-text-secondary hover:text-signal-danger hover:bg-signal-danger/10 rounded-md transition-colors"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -276,7 +276,7 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                     <select
                       value={addMemberId}
                       onChange={(event) => setAddMemberId(event.target.value)}
-                      className="flex-1 px-3.5 py-2.5 bg-discordex-bg border border-discordex-border rounded-xl text-xs text-discordex-text-primary focus:outline-none focus:border-primary"
+                      className="flex-1 px-3.5 py-2.5 bg-signal-bg border border-signal-border rounded-md text-xs text-signal-text-primary focus:outline-none focus:border-brass"
                     >
                       <option value="">Selecione um membro...</option>
                       {membersWithoutRole.map((member) => (
@@ -291,7 +291,7 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                         void addRoleToMember(server.id, addMemberId, selectedRole.id);
                         setAddMemberId('');
                       }}
-                      className="px-3.5 py-2.5 bg-discordex-surface hover:bg-discordex-hover border border-discordex-border rounded-xl text-xs font-semibold text-discordex-text-primary transition-colors"
+                      className="px-3.5 py-2.5 bg-signal-surface hover:bg-signal-hover border border-signal-border rounded-md text-xs font-semibold text-signal-text-primary transition-colors"
                     >
                       Adicionar
                     </button>
@@ -299,13 +299,13 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                 </div>
 
                 {/* Channel access */}
-                <div className="bg-discordex-secondary border border-discordex-border rounded-2xl p-5 space-y-3">
+                <div className="bg-signal-secondary border border-signal-border rounded-md p-5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-discordex-text-primary flex items-center gap-2">
-                      <Hash className="w-4 h-4 text-discordex-text-secondary" />
+                    <h3 className="text-sm font-bold text-signal-text-primary flex items-center gap-2">
+                      <Hash className="w-4 h-4 text-signal-text-secondary" />
                       Acesso a canais
                     </h3>
-                    <span className="text-[10px] text-discordex-text-secondary">
+                    <span className="text-[10px] text-signal-text-secondary">
                       Desmarcar "Ver" de um cargo torna o canal privado para ele.
                     </span>
                   </div>
@@ -316,17 +316,17 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                       const canSend = perms ? perms.can_send : !permsForChannel(channel.id).length;
                       const isVoice = channel.type === 'voice';
                       return (
-                        <div key={channel.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-discordex-bg border border-discordex-border/60">
+                        <div key={channel.id} className="flex items-center gap-3 px-3 py-2.5 rounded-md bg-signal-bg border border-signal-border/60">
                           {isVoice
-                            ? <Volume2 className="w-4 h-4 text-discordex-text-secondary shrink-0" />
-                            : <Hash className="w-4 h-4 text-discordex-text-secondary shrink-0" />}
-                          <span className="flex-1 min-w-0 text-xs font-semibold text-discordex-text-primary truncate">
+                            ? <Waveform className="w-4 h-4 text-signal-text-secondary shrink-0" />
+                            : <Hash className="w-4 h-4 text-signal-text-secondary shrink-0" />}
+                          <span className="flex-1 min-w-0 text-xs font-semibold text-signal-text-primary truncate">
                             {channel.name}
                           </span>
                           <button
                             onClick={() => toggleChannelView(selectedRole.id, channel.id)}
-                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
-                              canView ? 'bg-discordex-success/15 text-discordex-success' : 'bg-discordex-danger/15 text-discordex-danger'
+                            className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-colors ${
+                              canView ? 'bg-signal-success/15 text-signal-success' : 'bg-signal-danger/15 text-signal-danger'
                             }`}
                           >
                             {canView ? 'Ver' : 'Oculto'}
@@ -334,8 +334,8 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                           {!isVoice && (
                             <button
                               onClick={() => toggleChannelSend(selectedRole.id, channel.id)}
-                              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
-                                canSend ? 'bg-discordex-success/15 text-discordex-success' : 'bg-discordex-danger/15 text-discordex-danger'
+                              className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-colors ${
+                                canSend ? 'bg-signal-success/15 text-signal-success' : 'bg-signal-danger/15 text-signal-danger'
                               }`}
                             >
                               {canSend ? 'Enviar' : 'Sem enviar'}
@@ -347,7 +347,7 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
                   </div>
                   <button
                     onClick={() => { server.channels.forEach((channel) => clearChannelOverrides(channel.id)); }}
-                    className="text-[10px] font-bold text-discordex-text-secondary hover:text-discordex-text-primary transition-colors"
+                    className="text-[10px] font-bold text-signal-text-secondary hover:text-signal-text-primary transition-colors"
                   >
                     Remover todas as restrições deste cargo
                   </button>
@@ -355,16 +355,16 @@ export const RoleSettings: React.FC<{ server: Server; initialRoleId?: string | n
 
                 <button
                   onClick={() => void handleSave()}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-semibold transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-brass hover:bg-brass-hover text-signal-bg rounded-md text-sm font-bold transition-colors"
                 >
-                  <Save className="w-4 h-4" />
+                  <FloppyDisk className="w-4 h-4" />
                   Salvar alterações
                 </button>
               </>
             )}
           </div>
         ) : (
-          <div className="bg-discordex-secondary border border-discordex-border rounded-2xl p-8 text-center text-xs text-discordex-text-secondary/60 italic">
+          <div className="bg-signal-secondary border border-signal-border rounded-md p-8 text-center text-xs text-signal-text-secondary/60 italic">
             Selecione um cargo para editar ou crie um novo.
           </div>
         )}
@@ -393,45 +393,45 @@ export const AuditLogs: React.FC<{ server: Server }> = ({ server }) => {
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-discordex-text-primary">Logs</h2>
-          <p className="text-xs text-discordex-text-secondary mt-1">
+          <h2 className="text-xl font-display font-bold text-signal-text-primary">Logs</h2>
+          <p className="text-xs text-signal-text-secondary mt-1">
             Registro de todas as ações administrativas do grupo.
           </p>
         </div>
         <button
           onClick={() => void load()}
-          className="px-4 py-2.5 bg-discordex-secondary hover:bg-discordex-surface border border-discordex-border text-discordex-text-primary rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition-colors"
+          className="px-4 py-2.5 bg-signal-secondary hover:bg-signal-surface border border-signal-border text-signal-text-primary rounded-md text-xs font-semibold inline-flex items-center gap-2 transition-colors"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <ArrowsClockwise className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </button>
       </div>
 
-      <div className="bg-discordex-secondary border border-discordex-border rounded-2xl overflow-hidden">
-        <div className="grid grid-cols-[150px_1fr_1fr_130px] gap-3 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-discordex-text-secondary border-b border-discordex-border">
+      <div className="bg-signal-secondary border border-signal-border rounded-md overflow-hidden">
+        <div className="grid grid-cols-[150px_1fr_1fr_130px] gap-3 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-signal-text-secondary border-b border-signal-border">
           <span>Data</span>
           <span>Ação</span>
           <span>Quem / Alvo</span>
           <span>Detalhes</span>
         </div>
         {loading ? (
-          <div className="px-4 py-8 text-center text-xs text-discordex-text-secondary">Carregando logs...</div>
+          <div className="px-4 py-8 text-center text-xs text-signal-text-secondary">Carregando logs...</div>
         ) : logs.length === 0 ? (
-          <div className="px-4 py-8 text-center text-xs text-discordex-text-secondary">Nenhum registro ainda.</div>
+          <div className="px-4 py-8 text-center text-xs text-signal-text-secondary">Nenhum registro ainda.</div>
         ) : (
           logs.map((log) => (
-            <div key={log.id} className="grid grid-cols-[150px_1fr_1fr_130px] gap-3 px-4 py-3 items-center border-b border-discordex-border/60 last:border-b-0 hover:bg-discordex-surface/30 transition-colors">
-              <span className="text-[10px] text-discordex-text-secondary">
+            <div key={log.id} className="grid grid-cols-[150px_1fr_1fr_130px] gap-3 px-4 py-3 items-center border-b border-signal-border/60 last:border-b-0 hover:bg-signal-surface/30 transition-colors">
+              <span className="text-[10px] text-signal-text-secondary font-mono">
                 {new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
               </span>
-              <span className="text-xs font-semibold text-discordex-text-primary">
+              <span className="text-xs font-semibold text-signal-text-primary">
                 {AUDIT_ACTION_LABELS[log.action] || log.action}
               </span>
-              <span className="text-[10px] text-discordex-text-secondary truncate">
+              <span className="text-[10px] text-signal-text-secondary truncate">
                 {log.actor_name}
                 {log.target_name ? ` → ${log.target_name}` : ''}
               </span>
-              <span className="text-[10px] text-discordex-text-secondary/70 truncate" title={JSON.stringify(log.details ?? {})}>
+              <span className="text-[10px] text-signal-text-secondary/70 truncate" title={JSON.stringify(log.details ?? {})}>
                 {log.details ? JSON.stringify(log.details) : '—'}
               </span>
             </div>
