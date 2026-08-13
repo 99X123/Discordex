@@ -192,18 +192,20 @@ this.participants.clear();
     }
   }
 
-  setScreenTrack(track: MediaStreamTrack | null) {
+  async setScreenTrack(track: MediaStreamTrack | null) {
     this.screenTrack = track;
     const sharing = !!track;
     this.screenStream = sharing && track ? new MediaStream([track]) : null;
+    const peersToRenegotiate: string[] = [];
 
-    for (const peer of this.peers.values()) {
+    for (const [remoteUserId, peer] of this.peers.entries()) {
       if (sharing && track) {
         if (peer.screenSender) {
-          void peer.screenSender.replaceTrack(track).catch(() => { /* ignore */ });
+          await peer.screenSender.replaceTrack(track).catch(() => { /* ignore */ });
         } else {
           try {
             peer.screenSender = peer.pc.addTrack(track, this.screenStream!);
+            peersToRenegotiate.push(remoteUserId);
           } catch (error) {
             console.error('addTrack screen error', error);
           }
@@ -215,6 +217,7 @@ this.participants.clear();
           console.error('removeTrack screen error', error);
         }
         peer.screenSender = undefined;
+        peersToRenegotiate.push(remoteUserId);
       }
     }
 
@@ -230,6 +233,12 @@ this.participants.clear();
     } else if (this.realtime && this.dmRoom) {
       void this.trackDmPresence({ screen: sharing });
     }
+
+    await Promise.all(peersToRenegotiate.map((remoteUserId) => {
+      const peer = this.peers.get(remoteUserId);
+      if (!peer) return Promise.resolve();
+      return this.negotiateWith(remoteUserId, peer.pc);
+    }));
   }
 
   setVideoBitrate(bitrate: number | null) {
@@ -421,16 +430,7 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
     };
 
     pc.onnegotiationneeded = async () => {
-      try {
-        if (pc.signalingState !== 'stable') return;
-        this.makingOffer = true;
-        await pc.setLocalDescription();
-        await this.sendSignal(remoteUserId, 'offer', { sdp: pc.localDescription });
-      } catch (error) {
-        console.error('negotiationneeded error', error);
-      } finally {
-        this.makingOffer = false;
-      }
+      await this.negotiateWith(remoteUserId, pc);
     };
 
     pc.onconnectionstatechange = () => {
@@ -438,6 +438,20 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
         try { pc.restartIce(); } catch { /* ignore */ }
       }
     };
+  }
+
+  private async negotiateWith(remoteUserId: string, pc: RTCPeerConnection) {
+    try {
+      if (this.stopped || pc.signalingState !== 'stable') return;
+      this.makingOffer = true;
+      await pc.setLocalDescription();
+      await this.sendSignal(remoteUserId, 'offer', { sdp: pc.localDescription });
+    } catch (error) {
+      console.error('negotiation error', error);
+      this.opts.onError('Nao foi possivel renegociar a chamada. Tente sair e entrar novamente.');
+    } finally {
+      this.makingOffer = false;
+    }
   }
 
   private async flushCandidates(userId: string, pc: RTCPeerConnection) {

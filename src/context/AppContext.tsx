@@ -1328,7 +1328,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     if (engineRef.current) {
-      void engineRef.current.setScreenTrack(track);
+      await engineRef.current.setScreenTrack(track);
       engineRef.current.setVideoBitrate(Number(localStorage.getItem('discordex:video-bitrate') || 0) > 0 ? Number(localStorage.getItem('discordex:video-bitrate')) : null);
     } else if (callState.channelId && currentUser) {
       void supabase.from('voice_states').update({ screen_sharing: true }).eq('channel_id', callState.channelId).eq('user_id', currentUser.id);
