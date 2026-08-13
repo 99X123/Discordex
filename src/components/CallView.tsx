@@ -26,11 +26,13 @@ export const CallView: React.FC = () => {
     moveMemberBetweenChannels,
     setMemberMuted,
     setMemberDeafened,
+    addToast,
   } = app;
 
   const { openMenu } = useContextMenu();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [forcedFullscreen, setForcedFullscreen] = useState(false);
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
   const [deafenedMap, setDeafenedMap] = useState<Record<string, boolean>>({});
 
@@ -49,18 +51,25 @@ export const CallView: React.FC = () => {
   const canManage = (userId: string) => myPerms.isOwner || myPerms.topPosition > targetTopPosition(userId);
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const handler = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+      if (!document.fullscreenElement) setForcedFullscreen(false);
+    };
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
   const toggleFullscreen = () => {
-    if (document.fullscreenElement) {
+    if (document.fullscreenElement || forcedFullscreen) {
+      setForcedFullscreen(false);
       void document.exitFullscreen().catch(() => { /* ignore */ });
     } else if (containerRef.current) {
       void containerRef.current
         .requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions)
-        .catch(() => { /* ignore */ });
+        .catch(() => {
+          setForcedFullscreen(true);
+          addToast('Tela cheia nativa bloqueada pelo navegador. Usando modo expandido.', 'info');
+        });
     }
   };
 
@@ -72,7 +81,9 @@ export const CallView: React.FC = () => {
     <div
       ref={containerRef}
       className={`flex-1 bg-discordex-bg border-b border-discordex-border flex flex-col relative overflow-hidden ${
-        isFullscreen ? 'h-full max-h-full' : 'h-[360px] shrink-0'
+        isFullscreen || forcedFullscreen
+          ? 'fixed inset-0 z-[70] h-screen max-h-screen border-b-0'
+          : 'h-[360px] shrink-0'
       }`}
     >
 
@@ -94,9 +105,9 @@ export const CallView: React.FC = () => {
       <button
         onClick={toggleFullscreen}
         className="absolute top-4 right-4 z-30 w-8 h-8 rounded-xl bg-black/60 backdrop-blur-md border border-discordex-border/40 flex items-center justify-center text-discordex-text-secondary hover:text-discordex-text-primary hover:bg-black/80 transition-colors"
-        title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+        title={(isFullscreen || forcedFullscreen) ? 'Sair da tela cheia' : 'Tela cheia'}
       >
-        {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+        {(isFullscreen || forcedFullscreen) ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
       </button>
 
       {/* Main Grid View */}
@@ -120,7 +131,7 @@ export const CallView: React.FC = () => {
           </div>
         ) : (
           <div className={`grid gap-4 w-full h-full ${
-            isFullscreen ? 'max-w-[1400px] max-h-full' : 'max-w-4xl max-h-[280px]'
+            (isFullscreen || forcedFullscreen) ? 'max-w-[1400px] max-h-full' : 'max-w-4xl max-h-[280px]'
           } ${
             callState.participants.length <= 1 ? 'grid-cols-1' :
             callState.participants.length <= 2 ? 'grid-cols-2' :

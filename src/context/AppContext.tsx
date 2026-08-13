@@ -1275,18 +1275,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let displayStream: MediaStream;
     try {
-      const screenConstraints: MediaTrackConstraints = {};
-      const videoQuality = localStorage.getItem('discordex:video-quality') || 'auto';
-      if (videoQuality === '480p') { screenConstraints.width = { max: 854 }; screenConstraints.height = { max: 480 }; }
-      else if (videoQuality === '720p') { screenConstraints.width = { max: 1280 }; screenConstraints.height = { max: 720 }; }
-      else if (videoQuality === '1080p') { screenConstraints.width = { max: 1920 }; screenConstraints.height = { max: 1080 }; }
-      const videoFps = Math.min(Math.max(Number(localStorage.getItem('discordex:video-fps') || 30), 1), 60);
-      screenConstraints.frameRate = { ideal: videoFps, max: videoFps };
-      displayStream = await navigator.mediaDevices.getDisplayMedia({ video: screenConstraints });
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        addToast('Este navegador nao permite compartilhamento de tela aqui.', 'error');
+        return;
+      }
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      });
     } catch (error) {
       const err = error as DOMException;
       if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
-        addToast('Compartilhamento de tela cancelado ou sem permissao.', 'info');
+        addToast('Compartilhamento bloqueado. Abra o app direto no navegador ou permita display-capture/fullscreen.', 'error');
       } else if (err.name === 'NotFoundError' || err.name === 'NotReadableError') {
         addToast('Nao foi possivel acessar a tela selecionada. Verifique o navegador e tente novamente.', 'error');
       } else {
@@ -1303,6 +1303,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     screenStreamRef.current = displayStream;
+    const videoQuality = localStorage.getItem('discordex:video-quality') || 'auto';
+    const videoFps = Math.min(Math.max(Number(localStorage.getItem('discordex:video-fps') || 30), 1), 60);
+    if (videoQuality !== 'auto') {
+      const constraints: MediaTrackConstraints = { frameRate: { ideal: videoFps, max: videoFps } };
+      if (videoQuality === '480p') { constraints.width = { max: 854 }; constraints.height = { max: 480 }; }
+      else if (videoQuality === '720p') { constraints.width = { max: 1280 }; constraints.height = { max: 720 }; }
+      else if (videoQuality === '1080p') { constraints.width = { max: 1920 }; constraints.height = { max: 1080 }; }
+      void track.applyConstraints(constraints).catch(() => { /* keep browser-selected capture */ });
+    }
 
     const handleEnded = () => {
       if (screenStreamRef.current !== displayStream) return;
