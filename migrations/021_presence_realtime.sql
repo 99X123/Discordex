@@ -21,14 +21,15 @@ CREATE INDEX IF NOT EXISTS idx_profiles_last_seen
 -- ------------------------------------------------------------------
 -- Realtime: tabelas faltantes na publicacao
 -- ------------------------------------------------------------------
-BEGIN;
+DO $$
+BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.roles;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.role_members;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.servers;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.server_bans;
   END IF;
-COMMIT;
+END $$;
 
 -- ------------------------------------------------------------------
 -- Admin stats: online = last_seen_at nos ultimos 2 minutos
