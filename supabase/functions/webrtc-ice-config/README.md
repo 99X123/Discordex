@@ -2,6 +2,12 @@
 
 Edge Function que entrega a configuracao ICE (STUN + TURN) ao frontend sem codificar credenciais no app.
 
+> **Alternativa mais simples (recomendada se o app roda na Vercel):** o frontend agora
+> chama primeiro `/api/ice-config` (serverless function da propria Vercel, mesmo dominio,
+> sem CORS). Basta configurar `CLOUDFLARE_TURN_KEY_ID` / `CLOUDFLARE_TURN_API_TOKEN` nas
+> Environment Variables da Vercel e dar push — deploy automatico. Esta edge function do
+> Supabase fica como segundo fallback.
+
 ## TURN gratuito da Cloudflare (recomendado)
 
 O TURN da Cloudflare Calls e gratuito (1 TB de trafego por mes na Free tier) e usa credenciais

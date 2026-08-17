@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import type { User } from '../context/AppContext';
 import {
   Hash, Waveform, MagnifyingGlass, PaperPlaneTilt, Smiley, ArrowBendUpLeft,
-  VideoCamera, Phone, ArrowLeft, ImageSquare, CircleNotch
+  VideoCamera, Phone, ArrowLeft, ImageSquare, CircleNotch, X
 } from '@phosphor-icons/react';
 import { Tooltip, TransmitMeter } from './SharedUI';
 import { useContextMenu } from './ContextMenu';
@@ -47,9 +47,19 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [searchVal, setSearchVal] = useState('');
   const [imageUploading, setImageUploading] = useState(false);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!expandedImage) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpandedImage(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [expandedImage]);
 
   // Contexto do chat ativo
   let chatTitle = '';
@@ -140,13 +150,15 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
     const lines = content.split('\n');
     return lines.map((line, i) => {
       if (isImageLine(line)) {
+        const src = line.trim();
         return (
           <img
             key={i}
-            src={line.trim()}
+            src={src}
             alt="Imagem"
             loading="lazy"
-            className="max-w-sm max-h-96 rounded-md border border-signal-border my-1 object-contain"
+            onClick={() => setExpandedImage(src)}
+            className="max-w-sm max-h-96 rounded-md border border-signal-border my-1 object-contain cursor-zoom-in hover:opacity-90 transition-opacity"
           />
         );
       }
@@ -535,6 +547,28 @@ export const ChatArea: React.FC<{ onToggleSidebar?: () => void }> = ({ onToggleS
 
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Imagem expandida (igual Discord) */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/95 backdrop-blur-md flex items-center justify-center"
+          onClick={() => setExpandedImage(null)}
+        >
+          <button
+            onClick={() => setExpandedImage(null)}
+            className="absolute top-5 right-5 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            title="Fechar (Esc)"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={expandedImage}
+            alt="Imagem expandida"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-[92vw] max-h-[92vh] rounded-lg object-contain shadow-float-lg"
+          />
         </div>
       )}
     </div>

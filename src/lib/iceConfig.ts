@@ -1,5 +1,3 @@
-import { supabase } from './supabase';
-
 interface IceConfigResponse {
   success: boolean;
   iceServers: RTCIceServer[];
@@ -19,30 +17,51 @@ const fallbackStun: RTCIceServer[] = [
 let cachedIceServers: RTCIceServer[] | null = null;
 let cacheExpiresAt = 0;
 
+async function fetchFrom(url: string): Promise<RTCIceServer[] | null> {
+  try {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(url, { signal: controller.signal });
+    window.clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = (await res.json()) as IceConfigResponse;
+    if (data?.success && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+      return data.iceServers;
+    }
+  } catch {
+    /* endpoint indisponivel -> tenta o proximo */
+  }
+  return null;
+}
+
 /**
  * Retorna os servidores ICE (STUN + TURN) para a chamada.
  *
- * Primeiro tenta a edge function `webrtc-ice-config` (que pode gerar
- * credenciais TURN efemeras e gratuitas da Cloudflare). Se ela nao
- * estiver publicada, cai para STUN publico + as vars VITE_TURN_* do
- * ambiente. Resultado fica em cache por 5 minutos.
+ * 1) `/api/ice-config` na propria Vercel (mesmo origin, sem CORS; gera
+ *    credenciais TURN efemeras e gratuitas da Cloudflare quando configurado).
+ * 2) Edge function `webrtc-ice-config` do Supabase (se publicada).
+ * 3) Fallback: STUN publico + vars VITE_TURN_* do ambiente.
+ *
+ * Resultado fica em cache por 5 minutos.
  */
 export async function getIceServers(): Promise<RTCIceServer[]> {
   if (cachedIceServers && Date.now() < cacheExpiresAt) return cachedIceServers;
 
-  try {
-    const { data, error } = await supabase.functions.invoke<IceConfigResponse>('webrtc-ice-config', {
-      method: 'GET',
-    });
+  const sameOrigin = await fetchFrom('/api/ice-config');
+  if (sameOrigin) {
+    cachedIceServers = sameOrigin;
+    cacheExpiresAt = Date.now() + 5 * 60 * 1000;
+    return cachedIceServers;
+  }
 
-    if (!error && data?.success && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
-      const ttl = (data.ttlSeconds || 300) * 1000;
-      cachedIceServers = data.iceServers;
-      cacheExpiresAt = Date.now() + ttl;
+  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim().replace(/\/+$/, '');
+  if (supabaseUrl) {
+    const fromEdge = await fetchFrom(`${supabaseUrl}/functions/v1/webrtc-ice-config`);
+    if (fromEdge) {
+      cachedIceServers = fromEdge;
+      cacheExpiresAt = Date.now() + 5 * 60 * 1000;
       return cachedIceServers;
     }
-  } catch {
-    /* edge function fora do ar -> usa fallback */
   }
 
   const servers: RTCIceServer[] = [...fallbackStun];
