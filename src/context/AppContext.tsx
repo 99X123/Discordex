@@ -26,7 +26,7 @@ import {
   updateRole as updateRoleRpc,
 } from '../services/roles';
 import { VoiceCallEngine, type CallParticipantInfo } from '../lib/webrtcCall';
-import { getIceServers } from '../lib/iceConfig';
+import { getIceConfig } from '../lib/iceConfig';
 import { applyNoiseSuppression } from '../lib/noiseGate';
 import { playJoinSound, playLeaveSound, playPopSound, playRingTone, stopRingTone } from '../lib/sounds';
 import type { Database } from '../lib/database.types';
@@ -1324,7 +1324,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }, 60000);
     }
 
-    const iceServers = await getIceServers();
+    const iceConfig = await getIceConfig();
 
     engineRef.current = new VoiceCallEngine({
       supabase,
@@ -1334,7 +1334,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       avatar: currentUser.avatar,
       isServerChannel: isServerVoice,
       stream,
-      iceServers,
+      iceConfig,
       startMuted,
       startCamera,
       videoBitrate,

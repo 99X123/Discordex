@@ -1,4 +1,5 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
+import type { IceConfig } from './iceConfig';
 
 export interface CallParticipantInfo {
   id: string;
@@ -18,7 +19,7 @@ export interface VoiceEngineOptions {
   avatar: string;
   isServerChannel: boolean;
 stream: MediaStream;
-  iceServers: RTCIceServer[];
+  iceConfig: IceConfig;
   startMuted: boolean;
   startCamera: boolean;
   videoBitrate?: number | null;
@@ -39,6 +40,9 @@ interface Peer {
   screenSender?: RTCRtpSender;
   screenStream?: MediaStream;
   needsRenegotiation?: boolean;
+  failoverUsed?: boolean;
+  failoverTimer?: number;
+  failoverWarned?: boolean;
 }
 
 interface DmPresenceMeta {
@@ -395,12 +399,58 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
     this.update();
   }
 
-  private async createPeer(remoteUserId: string) {
+private async createPeer(remoteUserId: string) {
     if (this.peers.has(remoteUserId)) return;
     const polite = remoteUserId > this.opts.userId;
-    const pc = new RTCPeerConnection({ iceServers: this.opts.iceServers, bundlePolicy: 'max-bundle' });
+    const pc = new RTCPeerConnection({
+      iceServers: this.opts.iceConfig.primary,
+      bundlePolicy: 'max-bundle',
+      iceCandidatePoolSize: 4,
+    });
     const peer: Peer = { pc, polite };
     this.peers.set(remoteUserId, peer);
+
+    // Failover automatico: tenta conexao direta (STUN) primeiro; se a rede
+    // bloquear, adiciona o relay publico como ultima opcao e reinicia o ICE.
+    const startFailoverTimer = () => {
+      if (peer.failoverTimer || this.stopped) return;
+      peer.failoverTimer = window.setTimeout(() => {
+        peer.failoverTimer = undefined;
+        if (this.stopped) return;
+        const state = pc.iceConnectionState;
+        if (state === 'connected' || state === 'completed') return;
+        if (peer.failoverUsed) {
+          if (!peer.failoverWarned) {
+            peer.failoverWarned = true;
+            this.opts.onError(
+              'Nao foi possivel conectar pela internet nesta rede (NAT bloqueia conexao direta). ' +
+              'Para garantir, configure o TURN gratuito da Cloudflare (1TB/mes) — veja README.'
+            );
+          }
+          return;
+        }
+        peer.failoverUsed = true;
+        try {
+          pc.setConfiguration({ iceServers: this.opts.iceConfig.backup });
+          pc.restartIce();
+        } catch { /* ignore */ }
+      }, 10000);
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        if (peer.failoverTimer) {
+          window.clearTimeout(peer.failoverTimer);
+          peer.failoverTimer = undefined;
+        }
+      } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+        if (!peer.failoverTimer && !peer.failoverUsed && !this.stopped) {
+          startFailoverTimer();
+        }
+      }
+    };
+
+    startFailoverTimer();
 
     this.opts.stream.getTracks().forEach((track) => pc.addTrack(track, this.opts.stream));
     if (this.screenTrack && this.screenStream) {
