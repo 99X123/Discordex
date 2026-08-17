@@ -51,11 +51,13 @@ export interface UserMenuOptions {
   voiceChannel?: string | null;
   muted?: boolean;
   deafened?: boolean;
+  volume?: number;
+  onVolumeChange?: (volume: number) => void;
   reopen?: () => void;
 }
 
 export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): ContextMenuItem[] => {
-  const { serverId, member, voiceChannel, muted = false, deafened = false, reopen } = options;
+  const { serverId, member, voiceChannel, muted = false, deafened = false, volume = 100, onVolumeChange, reopen } = options;
   const myPerms = deps.getMyPermissions(serverId);
   const targetTop = member.roles[0]?.position ?? -1;
   const canManage = myPerms.isOwner || myPerms.topPosition > targetTop;
@@ -179,6 +181,18 @@ export const buildUserMenu = (deps: MenuDeps, options: UserMenuOptions): Context
   }
 
   if (voiceChannel) {
+    if (!isSelf && onVolumeChange) {
+      items.push({ divider: true });
+      items.push({
+        label: 'Volume',
+        icon: <SpeakerHigh className="w-4 h-4" />,
+        submenu: [50, 75, 100, 125, 150, 200].map((value) => ({
+          label: `${value}%`,
+          checked: volume === value,
+          onClick: () => onVolumeChange(value),
+        })),
+      });
+    }
     if (canManage && hasPerm(PERMISSIONS.MUTE_MEMBERS)) {
       items.push({ divider: true });
       items.push({

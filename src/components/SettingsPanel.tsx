@@ -22,6 +22,7 @@ export const SettingsPanel: React.FC = () => {
     isAppAdmin,
     serverSettingsTab,
     serverSettingsRoleId,
+    addToast,
   } = useApp();
 
   const [displayName, setDisplayName] = useState(currentUser.displayName);
@@ -184,20 +185,35 @@ export const SettingsPanel: React.FC = () => {
     const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
     const filePath = `${currentUser.id}/banner-${Date.now()}.${extension}`;
 
-    const { error } = await supabase.storage
+    let uploadResult = await supabase.storage
       .from('banners')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: true,
         contentType: file.type,
       });
+    let usedBucket = 'banners';
+
+    if (uploadResult.error) {
+      uploadResult = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
+        });
+      usedBucket = 'avatars';
+    }
 
     setBannerUploading(false);
     event.target.value = '';
 
-    if (error) return;
+    if (uploadResult.error) {
+      addToast(uploadResult.error.message || 'Nao foi possivel enviar o banner.', 'error');
+      return;
+    }
 
-    const { data } = supabase.storage.from('banners').getPublicUrl(filePath);
+    const { data } = supabase.storage.from(usedBucket).getPublicUrl(filePath);
     setBannerUrl(data.publicUrl);
     updateCurrentUserProfile(displayName, bio, status, avatarUrl, username, data.publicUrl);
   };

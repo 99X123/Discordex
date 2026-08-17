@@ -36,6 +36,7 @@ export const CallView: React.FC = () => {
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
   const [deafenedMap, setDeafenedMap] = useState<Record<string, boolean>>({});
   const [expandedScreen, setExpandedScreen] = useState<{ id: string; stream: MediaStream; name: string } | null>(null);
+  const [userVolumes, setUserVolumes] = useState<Record<string, number>>({});
 
   const callServer = servers.find((server) =>
     server.channels.some((channel) => channel.id === callState.channelId && channel.type === 'voice')
@@ -169,6 +170,8 @@ export const CallView: React.FC = () => {
                     voiceChannel: callState.channelId,
                     muted: p.isMuted,
                     deafened: deafenedMap[p.id],
+                    volume: userVolumes[p.id] ?? 100,
+                    onVolumeChange: (v) => setUserVolumes((prev) => ({ ...prev, [p.id]: v })),
                   }));
                 }}
                 className={`bg-signal-secondary border rounded-md overflow-hidden relative flex flex-col items-center justify-center transition-all duration-300 group ${
@@ -179,7 +182,7 @@ export const CallView: React.FC = () => {
                 {/* Vídeo / Avatar */}
                 {showVideo ? (
                   <video
-                    ref={(el) => { if (el && el.srcObject !== stream) el.srcObject = stream; }}
+                    ref={(el) => { if (el) { if (el.srcObject !== stream) el.srcObject = stream; el.volume = isMe ? 1 : (userVolumes[p.id] ?? 100) / 100; } }}
                     autoPlay
                     playsInline
                     muted={isMe || callState.isSpeakerMuted}
@@ -207,7 +210,7 @@ export const CallView: React.FC = () => {
                 {/* Áudio remoto */}
                 {!isMe && camera && (!showVideo || stream !== camera) && (
                   <audio
-                    ref={(el) => { if (el && el.srcObject !== camera) el.srcObject = camera; }}
+                    ref={(el) => { if (el) { if (el.srcObject !== camera) el.srcObject = camera; el.volume = (userVolumes[p.id] ?? 100) / 100; } }}
                     autoPlay
                     muted={callState.isSpeakerMuted}
                     className="hidden"

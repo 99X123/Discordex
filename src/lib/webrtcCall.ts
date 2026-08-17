@@ -38,6 +38,7 @@ interface Peer {
   stream?: MediaStream;
   screenSender?: RTCRtpSender;
   screenStream?: MediaStream;
+  needsRenegotiation?: boolean;
 }
 
 interface DmPresenceMeta {
@@ -67,6 +68,7 @@ export class VoiceCallEngine {
   private screenStream: MediaStream | null = null;
   private dmRoom: string | null = null;
   private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
+  private remoteAnalysers = new Map<string, { analyser: AnalyserNode; rafId: number }>();
 
   constructor(opts: VoiceEngineOptions) {
     this.opts = opts;
@@ -155,10 +157,11 @@ for (const peer of this.peers.values()) {
     }
     this.peers.clear();
     this.pendingCandidates.clear();
-    if (this.audioCtx) {
+if (this.audioCtx) {
       try { await this.audioCtx.close(); } catch { /* ignore */ }
       this.audioCtx = null;
     }
+    for (const [userId] of this.remoteAnalysers) this.stopRemoteSpeakingDetection(userId);
 this.participants.clear();
   }
 
@@ -410,9 +413,9 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
       }
     };
 
-    pc.ontrack = (event) => {
-      const [stream] = event.streams;
-      if (!stream) return;
+pc.ontrack = (event) => {
+      let stream = event.streams && event.streams[0] ? event.streams[0] : null;
+      if (!stream) stream = new MediaStream([event.track]);
       const isVideo = event.track.kind === 'video';
       if (isVideo && peer.stream && stream.id !== peer.stream.id) {
         peer.screenStream = stream;
@@ -425,6 +428,7 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
         };
         return;
       }
+      if (!isVideo) this.startRemoteSpeakingDetection(remoteUserId, stream);
       peer.stream = stream;
       this.opts.onRemoteStream(remoteUserId, stream);
     };
@@ -433,7 +437,10 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
       await this.negotiateWith(remoteUserId, pc);
     };
 
-    pc.onconnectionstatechange = () => {
+    pc.onsignalingstatechange = () => {
+      if (pc.signalingState === 'stable') {
+        this.flushPendingNegotiation(remoteUserId, pc);
+      }
       if (pc.connectionState === 'failed') {
         try { pc.restartIce(); } catch { /* ignore */ }
       }
@@ -442,24 +449,13 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
 
   private async negotiateWith(remoteUserId: string, pc: RTCPeerConnection) {
     if (this.stopped) return;
+    if (this.makingOffer || pc.signalingState !== 'stable') {
+      const peer = this.peers.get(remoteUserId);
+      if (peer) peer.needsRenegotiation = true;
+      return;
+    }
+    this.makingOffer = true;
     try {
-      if (pc.signalingState !== 'stable') {
-        await new Promise<void>((resolve) => {
-          const onState = () => {
-            if (pc.signalingState === 'stable') {
-              pc.removeEventListener('signalingstatechange', onState);
-              resolve();
-            }
-          };
-          pc.addEventListener('signalingstatechange', onState);
-          window.setTimeout(() => {
-            pc.removeEventListener('signalingstatechange', onState);
-            resolve();
-          }, 1500);
-        });
-      }
-      if (this.stopped || pc.signalingState !== 'stable') return;
-      this.makingOffer = true;
       await pc.setLocalDescription();
       await this.sendSignal(remoteUserId, 'offer', { sdp: pc.localDescription });
     } catch (error) {
@@ -467,7 +463,19 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
       this.opts.onError('Nao foi possivel renegociar a chamada. Tente sair e entrar novamente.');
     } finally {
       this.makingOffer = false;
+      this.flushPendingNegotiation(remoteUserId, pc);
     }
+  }
+
+  private flushPendingNegotiation(remoteUserId: string, pc: RTCPeerConnection) {
+    const peer = this.peers.get(remoteUserId);
+    if (!peer?.needsRenegotiation) return;
+    peer.needsRenegotiation = false;
+    if (this.makingOffer || pc.signalingState !== 'stable') {
+      peer.needsRenegotiation = true;
+      return;
+    }
+    void this.negotiateWith(remoteUserId, pc);
   }
 
   private async flushCandidates(userId: string, pc: RTCPeerConnection) {
@@ -603,6 +611,7 @@ if (parsed?.sdp) {
 
 private removePeer(userId: string) {
     this.pendingCandidates.delete(userId);
+    this.stopRemoteSpeakingDetection(userId);
     const peer = this.peers.get(userId);
     if (peer) {
       try { peer.pc.close(); } catch { /* ignore */ }
@@ -643,6 +652,45 @@ private removePeer(userId: string) {
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
+  }
+
+  private startRemoteSpeakingDetection(userId: string, stream: MediaStream) {
+    if (this.remoteAnalysers.has(userId) || typeof window === 'undefined') return;
+    try {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      if (!this.audioCtx) this.audioCtx = new AC();
+      if (this.audioCtx.state === 'suspended') void this.audioCtx.resume();
+      const source = this.audioCtx.createMediaStreamSource(stream);
+      const analyser = this.audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      const loop = () => {
+        if (this.stopped || !this.remoteAnalysers.has(userId)) return;
+        analyser.getByteFrequencyData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += data[i];
+        const level = sum / data.length;
+        const p = this.participants.get(userId);
+        const speaking = !!p && !p.isMuted && level > 12;
+        if (p && p.isSpeaking !== speaking) {
+          p.isSpeaking = speaking;
+          this.update();
+        }
+        const entry = this.remoteAnalysers.get(userId);
+        if (entry) entry.rafId = requestAnimationFrame(loop);
+      };
+      this.remoteAnalysers.set(userId, { analyser, rafId: requestAnimationFrame(loop) });
+    } catch { /* ignore */ }
+  }
+
+  private stopRemoteSpeakingDetection(userId: string) {
+    const entry = this.remoteAnalysers.get(userId);
+    if (entry) {
+      cancelAnimationFrame(entry.rafId);
+      this.remoteAnalysers.delete(userId);
+    }
   }
 
   private update() {
