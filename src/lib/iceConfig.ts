@@ -39,26 +39,18 @@ async function fetchFrom(url: string): Promise<RTCIceServer[] | null> {
  *
  * 1) `/api/ice-config` na propria Vercel (mesmo origin, sem CORS; gera
  *    credenciais TURN efemeras e gratuitas da Cloudflare quando configurado).
- * 2) Edge function `webrtc-ice-config` do Supabase (se publicada).
- * 3) Fallback: STUN publico + vars VITE_TURN_* do ambiente.
+ *    So e usado em producao — em dev local nao existe funcao e nao ha CORS.
+ * 2) Fallback: STUN publico + vars VITE_TURN_* do ambiente (build time).
  *
  * Resultado fica em cache por 5 minutos.
  */
 export async function getIceServers(): Promise<RTCIceServer[]> {
   if (cachedIceServers && Date.now() < cacheExpiresAt) return cachedIceServers;
 
-  const sameOrigin = await fetchFrom('/api/ice-config');
-  if (sameOrigin) {
-    cachedIceServers = sameOrigin;
-    cacheExpiresAt = Date.now() + 5 * 60 * 1000;
-    return cachedIceServers;
-  }
-
-  const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim().replace(/\/+$/, '');
-  if (supabaseUrl) {
-    const fromEdge = await fetchFrom(`${supabaseUrl}/functions/v1/webrtc-ice-config`);
-    if (fromEdge) {
-      cachedIceServers = fromEdge;
+  if (import.meta.env.PROD) {
+    const sameOrigin = await fetchFrom('/api/ice-config');
+    if (sameOrigin) {
+      cachedIceServers = sameOrigin;
       cacheExpiresAt = Date.now() + 5 * 60 * 1000;
       return cachedIceServers;
     }
