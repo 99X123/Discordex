@@ -35,6 +35,7 @@ export const CallView: React.FC = () => {
   const [forcedFullscreen, setForcedFullscreen] = useState(false);
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
   const [deafenedMap, setDeafenedMap] = useState<Record<string, boolean>>({});
+  const [expandedScreen, setExpandedScreen] = useState<{ id: string; stream: MediaStream; name: string } | null>(null);
 
   const callServer = servers.find((server) =>
     server.channels.some((channel) => channel.id === callState.channelId && channel.type === 'voice')
@@ -58,6 +59,15 @@ export const CallView: React.FC = () => {
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
+
+  useEffect(() => {
+    if (!expandedScreen) return;
+    if (!callState.isActive) { setExpandedScreen(null); return; }
+    const liveStreams = expandedScreen.id === currentUser.id
+      ? (callState.screenStream || null)
+      : (callState.remoteScreenStreams?.[expandedScreen.id] || null);
+    if (liveStreams !== expandedScreen.stream) setExpandedScreen(null);
+  }, [callState.screenStream, callState.remoteScreenStreams, callState.isActive, expandedScreen, currentUser.id]);
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement || forcedFullscreen) {
@@ -211,6 +221,15 @@ export const CallView: React.FC = () => {
                   </span>
 
                   <div className="flex items-center gap-1">
+                    {isSharing && stream && (
+                      <button
+                        onClick={() => setExpandedScreen({ id: p.id, stream, name: p.name })}
+                        className="p-1 text-brass hover:bg-brass/20 rounded-md transition-colors"
+                        title="Expandir tela"
+                      >
+                        <ArrowsOutSimple className="w-3 h-3" />
+                      </button>
+                    )}
                     {isSharing && <Presentation className="w-3 h-3 text-brass" />}
                     {p.isMuted && <MicrophoneSlash className="w-3 h-3 text-signal-danger" />}
                     {!p.isCameraOn && !isSharing && <VideoCameraSlash className="w-3 h-3 text-signal-text-secondary" />}
@@ -365,6 +384,38 @@ export const CallView: React.FC = () => {
         </Tooltip>
 
       </div>
+
+      {/* Tela compartilhada expandida */}
+      {expandedScreen && expandedScreen.stream && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/95 backdrop-blur-md flex flex-col"
+          onClick={() => setExpandedScreen(null)}
+        >
+          <div className="flex items-center justify-between px-5 py-3 border-b border-signal-border/40">
+            <div className="flex items-center gap-2.5">
+              <Presentation className="w-4 h-4 text-brass" />
+              <span className="text-xs font-mono font-bold text-signal-text-primary uppercase tracking-wider">
+                Tela de {expandedScreen.name}
+              </span>
+            </div>
+            <button
+              onClick={() => setExpandedScreen(null)}
+              className="w-8 h-8 rounded-md bg-signal-surface border border-signal-border hover:bg-signal-hover flex items-center justify-center text-signal-text-secondary hover:text-signal-text-primary transition-colors"
+              title="Fechar"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" />
+            </button>
+          </div>
+          <div className="flex-1 p-4 flex items-center justify-center overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <video
+              ref={(el) => { if (el && el.srcObject !== expandedScreen.stream) el.srcObject = expandedScreen.stream; }}
+              autoPlay
+              playsInline
+              className="max-w-full max-h-full rounded-md border border-signal-border/40 bg-black object-contain"
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );

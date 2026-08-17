@@ -17,6 +17,7 @@ export interface Database {
           status: 'online' | 'idle' | 'dnd' | 'offline';
           created_at: string;
           updated_at: string;
+          last_seen_at: string;
         };
         Insert: {
           id: string;
@@ -26,6 +27,7 @@ export interface Database {
           banner_url?: string | null;
           bio?: string | null;
           status?: 'online' | 'idle' | 'dnd' | 'offline';
+          last_seen_at?: string;
         };
         Update: {
           username?: string;
@@ -34,6 +36,7 @@ export interface Database {
           banner_url?: string | null;
           bio?: string | null;
           status?: 'online' | 'idle' | 'dnd' | 'offline';
+          last_seen_at?: string;
         };
         Relationships: [];
       };

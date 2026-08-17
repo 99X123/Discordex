@@ -395,7 +395,7 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
   private async createPeer(remoteUserId: string) {
     if (this.peers.has(remoteUserId)) return;
     const polite = remoteUserId > this.opts.userId;
-    const pc = new RTCPeerConnection({ iceServers: this.opts.iceServers });
+    const pc = new RTCPeerConnection({ iceServers: this.opts.iceServers, bundlePolicy: 'max-bundle' });
     const peer: Peer = { pc, polite };
     this.peers.set(remoteUserId, peer);
 
@@ -441,7 +441,23 @@ return { name: userId.slice(0, 8), avatar: fallbackAvatar('DX') };
   }
 
   private async negotiateWith(remoteUserId: string, pc: RTCPeerConnection) {
+    if (this.stopped) return;
     try {
+      if (pc.signalingState !== 'stable') {
+        await new Promise<void>((resolve) => {
+          const onState = () => {
+            if (pc.signalingState === 'stable') {
+              pc.removeEventListener('signalingstatechange', onState);
+              resolve();
+            }
+          };
+          pc.addEventListener('signalingstatechange', onState);
+          window.setTimeout(() => {
+            pc.removeEventListener('signalingstatechange', onState);
+            resolve();
+          }, 1500);
+        });
+      }
       if (this.stopped || pc.signalingState !== 'stable') return;
       this.makingOffer = true;
       await pc.setLocalDescription();

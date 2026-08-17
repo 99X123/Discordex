@@ -26,6 +26,7 @@ import {
   updateRole as updateRoleRpc,
 } from '../services/roles';
 import { VoiceCallEngine, type CallParticipantInfo } from '../lib/webrtcCall';
+import { getIceServers } from '../lib/iceConfig';
 import { applyNoiseSuppression } from '../lib/noiseGate';
 import { playJoinSound, playLeaveSound, playPopSound, playRingTone, stopRingTone } from '../lib/sounds';
 import type { Database } from '../lib/database.types';
@@ -340,6 +341,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const ringTimeoutRef = useRef<number | null>(null);
   const remoteLeaveTimerRef = useRef<number | null>(null);
   const ringDismissTimerRef = useRef<number | null>(null);
+  const manualStatusRef = useRef<ProfileRow['status'] | null>(null);
+  const realtimeReloadTimerRef = useRef<number | null>(null);
 
   const activeServer = useMemo(() => serverRows.find((server) => server.id === activeServerId), [serverRows, activeServerId]);
 
@@ -457,7 +460,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const profile = await getMyProfile();
     if (!profile) return;
     setCurrentUser(toUser(profile, 'Membro'));
-    await supabase.from('profiles').update({ status: 'online' }).eq('id', profile.id);
+    await supabase.from('profiles').update({ status: 'online', last_seen_at: new Date().toISOString() }).eq('id', profile.id);
     const { data: adminFlag } = await supabase.rpc('is_app_admin', {});
     setIsAppAdmin(Boolean(adminFlag));
     setConnectionState('online');
@@ -665,6 +668,233 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       void supabase.removeChannel(channel);
     };
   }, [currentUser]);
+
+  const applyPresence = useCallback((onlineIds: Set<string>) => {
+    const patchStatus = (user: User): User => {
+      const isOnline = onlineIds.has(user.id);
+      const target = isOnline ? (user.status === 'offline' ? 'online' : user.status) : 'offline';
+      return user.status === target ? user : { ...user, status: target };
+    };
+
+    setServerMembers((prev) => {
+      let changed = false;
+      const next: Record<string, ServerMember[]> = {};
+      for (const [serverId, members] of Object.entries(prev)) {
+        next[serverId] = members.map((member) => {
+          const profile = patchStatus(member.profile);
+          if (profile === member.profile) return member;
+          changed = true;
+          return { ...member, profile };
+        });
+      }
+      return changed ? next : prev;
+    });
+    setFriends((prev) => {
+      const next = prev.map(patchStatus);
+      return next.some((u, i) => u !== prev[i]) ? next : prev;
+    });
+    setDms((prev) => {
+      let changed = false;
+      const next = prev.map((dm) => {
+        const user = patchStatus(dm.user);
+        if (user === dm.user) return dm;
+        changed = true;
+        return { ...dm, user };
+      });
+      return changed ? next : prev;
+    });
+    setPendingRequests((prev) => {
+      const next = prev.map(patchStatus);
+      return next.some((u, i) => u !== prev[i]) ? next : prev;
+    });
+    setSelectedProfileUser((prev) => (prev ? patchStatus(prev) : prev));
+  }, []);
+
+  const patchProfile = useCallback((row: ProfileRow) => {
+    const apply = (user: User): User => {
+      if (user.id !== row.id) return user;
+      return {
+        ...user,
+        username: row.username,
+        displayName: row.display_name,
+        avatar: row.avatar_url || fallbackAvatar(row.display_name || row.username),
+        banner: row.banner_url || undefined,
+        status: row.status,
+        bio: row.bio || undefined,
+      };
+    };
+
+    setServerMembers((prev) => {
+      let changed = false;
+      const next: Record<string, ServerMember[]> = {};
+      for (const [serverId, members] of Object.entries(prev)) {
+        next[serverId] = members.map((member) => {
+          const profile = apply(member.profile);
+          if (profile === member.profile) return member;
+          changed = true;
+          return { ...member, profile };
+        });
+      }
+      return changed ? next : prev;
+    });
+    setFriends((prev) => {
+      const next = prev.map(apply);
+      return next.some((u, i) => u !== prev[i]) ? next : prev;
+    });
+    setDms((prev) => {
+      let changed = false;
+      const next = prev.map((dm) => {
+        const user = apply(dm.user);
+        if (user === dm.user) return dm;
+        changed = true;
+        return { ...dm, user };
+      });
+      return changed ? next : prev;
+    });
+    setPendingRequests((prev) => {
+      const next = prev.map(apply);
+      return next.some((u, i) => u !== prev[i]) ? next : prev;
+    });
+    setSelectedProfileUser((prev) => (prev ? apply(prev) : prev));
+    setCurrentUser((prev) => (prev && prev.id === row.id ? apply(prev) : prev));
+  }, []);
+
+  // Presenca real: quem esta com o site aberto aparece online; quem fechou some na hora.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const presence = supabase.channel('discordex-presence', {
+      config: { presence: { key: currentUser.id } },
+    });
+
+    const sync = () => {
+      const state = presence.presenceState<{ id: string }>();
+      const ids = new Set<string>();
+      for (const key of Object.keys(state)) {
+        const entries = state[key];
+        const entry = Array.isArray(entries) ? entries[entries.length - 1] : entries;
+        if (entry?.id) ids.add(entry.id);
+      }
+      applyPresence(ids);
+    };
+
+    presence.on('presence', { event: 'sync' }, sync);
+    presence.on('presence', { event: 'join' }, sync);
+    presence.on('presence', { event: 'leave' }, sync);
+
+    presence.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        void presence.track({ id: currentUser.id }).catch(() => { /* ignore */ });
+      }
+    });
+
+    return () => {
+      void supabase.removeChannel(presence);
+    };
+  }, [currentUser, applyPresence]);
+
+  // Heartbeat: mantem status/last_seen_at atualizados e marca offline ao sair.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const beat = () => {
+      const status = manualStatusRef.current ?? 'online';
+      void supabase
+        .from('profiles')
+        .update({ status, last_seen_at: new Date().toISOString() })
+        .eq('id', currentUser.id);
+    };
+    const markOffline = () => {
+      void supabase
+        .from('profiles')
+        .update({ status: 'offline', last_seen_at: new Date().toISOString() })
+        .eq('id', currentUser.id);
+    };
+
+    beat();
+    const interval = window.setInterval(beat, 30000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') markOffline();
+      else beat();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('beforeunload', markOffline);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('beforeunload', markOffline);
+      markOffline();
+    };
+  }, [currentUser]);
+
+  // Realtime global: amigos, membros, cargos, servidores e canais atualizam sem F5.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const debounceReload = (fn: () => void, ms = 400) => {
+      if (realtimeReloadTimerRef.current) window.clearTimeout(realtimeReloadTimerRef.current);
+      realtimeReloadTimerRef.current = window.setTimeout(fn, ms);
+    };
+
+    const channel = supabase.channel('discordex-realtime-global')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, (payload) => {
+        const row = payload.new as { requester_id?: string; receiver_id?: string } | null;
+        const old = payload.old as { requester_id?: string; receiver_id?: string } | null;
+        const involved =
+          row?.requester_id === currentUser.id || row?.receiver_id === currentUser.id ||
+          old?.requester_id === currentUser.id || old?.receiver_id === currentUser.id;
+        if (involved) void loadFriendsAndDms();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members' }, (payload) => {
+        const row = payload.new as { server_id?: string; user_id?: string } | null;
+        const old = payload.old as { server_id?: string; user_id?: string } | null;
+        const serverId = row?.server_id || old?.server_id;
+        const userId = row?.user_id || old?.user_id;
+        if (payload.eventType === 'DELETE' && userId === currentUser.id) {
+          void loadServers();
+          if (serverId && serverId === activeServerId) {
+            setActiveServerIdState(null);
+            setActiveChannelId(null);
+          }
+          addToast('Voce foi removido do servidor.', 'info');
+          return;
+        }
+        if (serverId) debounceReload(() => void loadServerMembers(serverId));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'roles' }, (payload) => {
+        const row = payload.new as { server_id?: string } | null;
+        const old = payload.old as { server_id?: string } | null;
+        const serverId = row?.server_id || old?.server_id;
+        if (serverId) {
+          debounceReload(() => {
+            void loadServerRoles(serverId);
+            void loadServerMembers(serverId);
+          });
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'role_members' }, () => {
+        if (activeServerId) debounceReload(() => void loadServerMembers(activeServerId));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'servers' }, () => {
+        debounceReload(() => void loadServers(), 800);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, () => {
+        debounceReload(() => void loadServers(), 800);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        const row = payload.new as ProfileRow | null;
+        if (row) patchProfile(row);
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+      if (realtimeReloadTimerRef.current) window.clearTimeout(realtimeReloadTimerRef.current);
+      realtimeReloadTimerRef.current = null;
+    };
+  }, [currentUser, activeServerId, applyPresence, patchProfile]);
 
   const loadChannelMessages = async (channelId: string) => {
     const { data } = await supabase
@@ -1094,14 +1324,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }, 60000);
     }
 
-    const iceServers: RTCIceServer[] = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
-      { urls: 'stun:global.stun.twilio.com:3478' },
-    ];
+    const iceServers = await getIceServers();
 
     engineRef.current = new VoiceCallEngine({
       supabase,
@@ -1285,7 +1508,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let displayStream: MediaStream;
     try {
       if (!navigator.mediaDevices?.getDisplayMedia) {
-        addToast('Este navegador nao permite compartilhamento de tela aqui.', 'error');
+        addToast('Compartilhamento de tela requer Chrome/Edge/Firefox no PC, com o site aberto via HTTPS (https://) — nao funciona em celular nem por http://. Abra em https:// e tente de novo.', 'error');
         return;
       }
       displayStream = await navigator.mediaDevices.getDisplayMedia({
@@ -1399,6 +1622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addToast(result.error || 'Nao foi possivel atualizar o perfil.', 'error');
       return;
     }
+    manualStatusRef.current = status;
     setCurrentUser(toUser(result.data, currentUser?.role));
     addToast('Perfil atualizado.', 'success');
   };
