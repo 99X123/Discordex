@@ -332,6 +332,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [serverRoles, setServerRoles] = useState<Record<string, ServerRole[]>>({});
   const [serverChannelPerms, setServerChannelPerms] = useState<Record<string, ChannelRolePerm[]>>({});
   const engineRef = useRef<VoiceCallEngine | null>(null);
+  const dmChannelIdsRef = useRef(new Map<string, string>());
   const screenStreamRef = useRef<MediaStream | null>(null);
   const callTypeRef = useRef<'server' | 'dm' | null>(null);
   const callStateRef = useRef<CallState>(emptyCallState);
@@ -939,10 +940,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loadDmMessages = async (otherUserId: string) => {
-    const { data: channelId, error: channelError } = await supabase.rpc('get_or_create_dm_channel', { p_other_user: otherUserId });
-    if (channelError || !channelId) {
-      addToast(channelError?.message || 'Nao foi possivel abrir a DM.', 'error');
-      return;
+    const cached = dmChannelIdsRef.current.get(otherUserId);
+    let channelId = cached;
+    if (!channelId) {
+      const { data: rpcChannelId, error: channelError } = await supabase.rpc('get_or_create_dm_channel', { p_other_user: otherUserId });
+      if (channelError || !rpcChannelId) {
+        addToast(channelError?.message || 'Nao foi possivel abrir a DM.', 'error');
+        return;
+      }
+      channelId = rpcChannelId;
+      dmChannelIdsRef.current.set(otherUserId, channelId);
     }
 
     const { data } = await supabase
@@ -1134,10 +1141,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (activeDmId) {
-      const { data: channelId, error: channelError } = await supabase.rpc('get_or_create_dm_channel', { p_other_user: activeDmId });
-      if (channelError || !channelId) {
-        addToast(channelError?.message || 'Nao foi possivel abrir a DM.', 'error');
-        return;
+      const cached = dmChannelIdsRef.current.get(activeDmId);
+      let channelId = cached;
+      if (!channelId) {
+        const { data: rpcChannelId, error: channelError } = await supabase.rpc('get_or_create_dm_channel', { p_other_user: activeDmId });
+        if (channelError || !rpcChannelId) {
+          addToast(channelError?.message || 'Nao foi possivel abrir a DM.', 'error');
+          return;
+        }
+        channelId = rpcChannelId;
+        dmChannelIdsRef.current.set(activeDmId, channelId);
       }
       const { error } = await supabase.from('direct_messages').insert({ channel_id: channelId, author_id: currentUser.id, content });
       if (error) addToast(error.message, 'error');
