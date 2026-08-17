@@ -18,12 +18,9 @@ const FALLBACK_STUN = [
   'stun:global.stun.twilio.com:3478',
 ];
 
-export default async function handler(req) {
+export default async function handler(req, res) {
   if (req.method !== 'GET') {
-    return new Response(JSON.stringify({ success: false, error: 'METHOD_NOT_ALLOWED' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(405).json({ success: false, error: 'METHOD_NOT_ALLOWED' });
   }
 
   let iceServers = null;
@@ -32,7 +29,7 @@ export default async function handler(req) {
   const cloudflareToken = process.env.CLOUDFLARE_TURN_API_TOKEN;
   if (cloudflareKeyId && cloudflareToken) {
     try {
-      const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${cloudflareKeyId}/credentials/generate`, {
+      const cfRes = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${cloudflareKeyId}/credentials/generate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${cloudflareToken}`,
@@ -40,8 +37,8 @@ export default async function handler(req) {
         },
         body: JSON.stringify({ ttl: 86400 }),
       });
-      if (res.ok) {
-        const data = await res.json();
+      if (cfRes.ok) {
+        const data = await cfRes.json();
         if (Array.isArray(data.iceServers) && data.iceServers.length > 0) {
           iceServers = data.iceServers;
         }
@@ -62,15 +59,6 @@ export default async function handler(req) {
     }
   }
 
-  return new Response(
-    JSON.stringify({ success: true, iceServers, ttlSeconds: 86400 }),
-    {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'private, max-age=300',
-        'Access-Control-Allow-Origin': '*',
-      },
-    }
-  );
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.status(200).json({ success: true, iceServers, ttlSeconds: 86400 });
 }
